@@ -12,12 +12,7 @@ body {
   margin: 40px auto 24px auto;
   border-radius: 20px;
   box-shadow: 0 4px 32px rgba(40,68,132,0.10);
-  transition: box-shadow .2s;
   box-sizing: border-box;
-}
-
-.container:hover {
-  box-shadow: 0 8px 40px rgba(40,68,132,0.20);
 }
 
 h2, h3 {
@@ -38,6 +33,7 @@ label {
 input[type="text"],
 input[type="search"],
 input[list],
+input[type="date"],
 select, textarea {
   width: 100%;
   padding: 9px 12px;
@@ -53,6 +49,7 @@ select, textarea {
 
 input[type="text"]:focus,
 input[list]:focus,
+input[type="date"]:focus,
 select:focus, textarea:focus {
   border: 1.6px solid #4285f4;
   outline: none;
@@ -109,17 +106,10 @@ hr {
   padding: 0;
 }
 
-.botones-acciones {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  justify-content: center;
-}
-
 .filtros-impresion {
   display: flex;
   gap: 7px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   align-items: center;
   justify-content: center;
 }
@@ -139,6 +129,21 @@ hr {
 }
 .filtros-impresion button:hover {
   background: #194077;
+}
+
+.filtros-extra {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  justify-content: center;
+}
+
+.filtros-extra input[type="date"],
+.filtros-extra input[type="text"] {
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: 1.3px solid #dde5f0;
+  font-size: .97em;
 }
 
 .tarjetas-contenedor {
@@ -178,6 +183,28 @@ hr {
   color: #29518e;
   margin-bottom: 3px;
   margin-left: 4px;
+}
+
+.pedido-acciones {
+  position: absolute;
+  right: 15px;
+  top: 15px;
+  display: flex;
+  gap: 10px;
+}
+.pedido-acciones button {
+  border: none;
+  background: #fff;
+  font-size: 1.3em;
+  cursor: pointer;
+  padding: 4px 5px;
+  border-radius: 50%;
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  transition: background 0.18s, transform 0.13s;
+}
+.pedido-acciones button:hover {
+  background: #e0e7ef;
+  transform: scale(1.15);
 }
 
 form > label {
@@ -227,7 +254,7 @@ form > button {
     font-size: 1.1em !important;
     margin: 0 0 7px 0 !important;
   }
-  #pedidoForm, .botones-acciones, .filtros-impresion, #msg, #loader {
+  #pedidoForm, .filtros-impresion, .filtros-extra, #msg, #loader {
     display: none !important;
   }
   #listaPedidos {
@@ -261,5 +288,8 @@ form > button {
     font-size: 0.97em !important;
     margin-left: 0 !important;
     margin-bottom: 2px !important;
+  }
+  .pedido-acciones {
+    display: none !important;
   }
 }
