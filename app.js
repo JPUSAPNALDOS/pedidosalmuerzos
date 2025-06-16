@@ -1,10 +1,19 @@
 // Cambia esta URL por tu endpoint único de SheetDB
-const API_URL_BASE = "https://sheetdb.io/api/v1/eywhbd01uz59s";
+const API_URL_BASE = "https://sheetdb.io/api/v1/tuAPIcode";
 const API_URL_NOMBRES = API_URL_BASE + "?sheet=Nombres";
 const API_URL_PEDIDOS = API_URL_BASE + "?sheet=Pedidos";
 
 function apiMenusSemana(semana) {
   return API_URL_BASE + `?sheet=${semana}`;
+}
+
+// Función para normalizar texto (quita tildes, espacios, minúsculas)
+function normaliza(str) {
+  return (str || "")
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase();
 }
 
 // Loader
@@ -30,7 +39,7 @@ async function cargarNombres() {
   });
 }
 
-// Menú, Entrada y Postre del día según semana y día
+// Menú, Entrada y Postre del día según semana y día (robusto)
 async function cargarMenuPorSemanaYDia() {
   mostrarLoader();
   const semana = document.getElementById('semana').value;
@@ -38,7 +47,8 @@ async function cargarMenuPorSemanaYDia() {
   const response = await fetch(apiMenusSemana(semana));
   const data = await response.json();
   ocultarLoader();
-  const menuDelDia = data.find(row => row.Día === dia);
+  // Busca el día ignorando tildes, espacios y mayúsculas/minúsculas
+  const menuDelDia = data.find(row => normaliza(row.Día) === normaliza(dia));
   document.getElementById('menu').value = menuDelDia ? menuDelDia.Menú : '';
   document.getElementById('entrada').value = menuDelDia ? menuDelDia.Entrada : '';
   document.getElementById('postre').value = menuDelDia ? menuDelDia.Postre : '';
@@ -105,7 +115,7 @@ document.getElementById('pedidoForm').addEventListener('submit', async function(
   }
 });
 
-// PEDIR TODA LA SEMANA
+// PEDIR TODA LA SEMANA (con confirmación)
 document.getElementById('pedirSemanaCompleta').addEventListener('click', async function() {
   const nombre = document.getElementById('nombre').value;
   const semana = document.getElementById('semana').value;
@@ -130,7 +140,7 @@ document.getElementById('pedirSemanaCompleta').addEventListener('click', async f
     // Crea pedidos para lunes a viernes
     const dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
     const pedidosSemana = dias.map(dia => {
-      const menuDia = menusSemana.find(row => row.Día === dia) || {};
+      const menuDia = menusSemana.find(row => normaliza(row.Día) === normaliza(dia)) || {};
       return {
         Nombre: nombre,
         Semana: semana,
