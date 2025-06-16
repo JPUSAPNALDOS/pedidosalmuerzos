@@ -1,4 +1,3 @@
-// Cambia esta URL por tu endpoint único de SheetDB
 const API_URL_BASE = "https://sheetdb.io/api/v1/eywhbd01uz59s";
 const API_URL_NOMBRES = API_URL_BASE + "?sheet=Nombres";
 const API_URL_PEDIDOS = API_URL_BASE + "?sheet=Pedidos";
@@ -7,7 +6,6 @@ function apiMenusSemana(semana) {
   return API_URL_BASE + `?sheet=${semana}`;
 }
 
-// Función para normalizar texto (quita tildes, espacios, minúsculas)
 function normaliza(str) {
   return (str || "")
     .trim()
@@ -24,7 +22,12 @@ function ocultarLoader() {
   document.getElementById('loader').style.display = 'none';
 }
 
-// Cargar nombres para autocompletar
+// Variables para edición y filtros
+let todosLosPedidos = [];
+let modoEdicion = false;
+let idEditar = null;
+
+// Nombres para autocompletar
 async function cargarNombres() {
   mostrarLoader();
   const response = await fetch(API_URL_NOMBRES);
@@ -47,7 +50,6 @@ async function cargarMenuPorSemanaYDia() {
   const response = await fetch(apiMenusSemana(semana));
   const data = await response.json();
   ocultarLoader();
-  // Busca el día ignorando tildes, espacios y mayúsculas/minúsculas
   const menuDelDia = data.find(row => normaliza(row.Día) === normaliza(dia));
   document.getElementById('menu').value = menuDelDia ? menuDelDia.Menú : '';
   document.getElementById('entrada').value = menuDelDia ? menuDelDia.Entrada : '';
@@ -57,14 +59,13 @@ async function cargarMenuPorSemanaYDia() {
 document.getElementById('semana').addEventListener('change', cargarMenuPorSemanaYDia);
 document.getElementById('dia').addEventListener('change', cargarMenuPorSemanaYDia);
 
-// Carga inicial
 window.addEventListener('DOMContentLoaded', () => {
   cargarNombres();
   cargarMenuPorSemanaYDia();
-  cargarPedidosDelDia();
+  cargarPedidosYMostrar();
 });
 
-// Registrar pedido (con Entrada y Postre)
+// REGISTRO / EDICIÓN de pedido
 document.getElementById('pedidoForm').addEventListener('submit', async function(e) {
   e.preventDefault();
   const nombre = document.getElementById('nombre').value;
@@ -76,44 +77,109 @@ document.getElementById('pedidoForm').addEventListener('submit', async function(
   const observaciones = document.getElementById('obs').value;
   const fechaHoy = new Date().toISOString().split('T')[0];
   const msg = document.getElementById('msg');
+
   msg.style.color = "black";
-  msg.textContent = "Enviando pedido...";
   mostrarLoader();
 
-  try {
-    const response = await fetch(API_URL_PEDIDOS, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        data: [{
-          Nombre: nombre,
-          Semana: semana,
-          Día: dia,
-          Menú: menu,
-          Entrada: entrada,
-          Postre: postre,
-          Observaciones: observaciones,
-          Fecha: fechaHoy
-        }]
-      })
-    });
-    ocultarLoader();
-    if (response.ok) {
-      msg.style.color = "green";
-      msg.textContent = "¡Pedido registrado exitosamente!";
-      this.reset();
-      cargarMenuPorSemanaYDia();
-      cargarPedidosDelDia();
-    } else {
+  if (!modoEdicion) {
+    // REGISTRO NUEVO
+    msg.textContent = "Enviando pedido...";
+    const nuevoID = Date.now().toString();
+    try {
+      const response = await fetch(API_URL_PEDIDOS, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: [{
+            ID: nuevoID,
+            Nombre: nombre,
+            Semana: semana,
+            Día: dia,
+            Menú: menu,
+            Entrada: entrada,
+            Postre: postre,
+            Observaciones: observaciones,
+            Fecha: fechaHoy
+          }]
+        })
+      });
+      ocultarLoader();
+      if (response.ok) {
+        msg.style.color = "green";
+        msg.textContent = "¡Pedido registrado exitosamente!";
+        this.reset();
+        modoEdicion = false;
+        idEditar = null;
+        document.querySelector('button[type="submit"]').textContent = "Registrar Pedido";
+        document.getElementById('cancelarEdicion') && (document.getElementById('cancelarEdicion').style.display = 'none');
+        cargarMenuPorSemanaYDia();
+        cargarPedidosYMostrar();
+      } else {
+        msg.style.color = "red";
+        msg.textContent = "Error al registrar pedido.";
+      }
+    } catch (err) {
+      ocultarLoader();
       msg.style.color = "red";
-      msg.textContent = "Error al registrar pedido.";
+      msg.textContent = "Error de conexión. Intenta de nuevo.";
     }
-  } catch (err) {
-    ocultarLoader();
-    msg.style.color = "red";
-    msg.textContent = "Error de conexión. Intenta de nuevo.";
+  } else {
+    // MODO EDICIÓN: PATCH (¡USANDO SOLO API_URL_BASE!)
+    msg.textContent = "Guardando cambios...";
+    try {
+      const response = await fetch(API_URL_BASE + `/ID/${idEditar}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: {
+            Nombre: nombre,
+            Semana: semana,
+            Día: dia,
+            Menú: menu,
+            Entrada: entrada,
+            Postre: postre,
+            Observaciones: observaciones,
+            Fecha: fechaHoy
+          }
+        })
+      });
+      ocultarLoader();
+      if (response.ok) {
+        msg.style.color = "green";
+        msg.textContent = "¡Pedido actualizado exitosamente!";
+        this.reset();
+        modoEdicion = false;
+        idEditar = null;
+        document.querySelector('button[type="submit"]').textContent = "Registrar Pedido";
+        document.getElementById('cancelarEdicion') && (document.getElementById('cancelarEdicion').style.display = 'none');
+        cargarMenuPorSemanaYDia();
+        cargarPedidosYMostrar();
+      } else {
+        msg.style.color = "red";
+        msg.textContent = "Error al actualizar el pedido.";
+      }
+    } catch (err) {
+      ocultarLoader();
+      msg.style.color = "red";
+      msg.textContent = "Error de conexión. Intenta de nuevo.";
+    }
   }
 });
+
+// Cancelar edición (opcional, solo si agregaste el botón en el HTML)
+if (document.getElementById('cancelarEdicion')) {
+  document.getElementById('pedidoForm').addEventListener('input', function() {
+    if (modoEdicion) document.getElementById('cancelarEdicion').style.display = '';
+  });
+  document.getElementById('cancelarEdicion').addEventListener('click', function() {
+    document.getElementById('pedidoForm').reset();
+    modoEdicion = false;
+    idEditar = null;
+    document.querySelector('button[type="submit"]').textContent = "Registrar Pedido";
+    document.getElementById('msg').textContent = '';
+    this.style.display = 'none';
+  });
+}
 
 // PEDIR TODA LA SEMANA (con confirmación)
 document.getElementById('pedirSemanaCompleta').addEventListener('click', async function() {
@@ -128,20 +194,19 @@ document.getElementById('pedirSemanaCompleta').addEventListener('click', async f
     return;
   }
 
-  // Confirmación antes de registrar
   if (!confirm("¿Seguro que quieres registrar los pedidos para toda la semana?")) return;
   
   mostrarLoader();
 
   try {
-    // Trae todos los menús de la semana seleccionada
     const response = await fetch(apiMenusSemana(semana));
     const menusSemana = await response.json();
-    // Crea pedidos para lunes a viernes
     const dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+    const fechaHoy = new Date().toISOString().split('T')[0];
     const pedidosSemana = dias.map(dia => {
       const menuDia = menusSemana.find(row => normaliza(row.Día) === normaliza(dia)) || {};
       return {
+        ID: Date.now() + Math.floor(Math.random() * 10000),
         Nombre: nombre,
         Semana: semana,
         Día: dia,
@@ -149,11 +214,10 @@ document.getElementById('pedirSemanaCompleta').addEventListener('click', async f
         Entrada: menuDia.Entrada || "",
         Postre: menuDia.Postre || "",
         Observaciones: observaciones,
-        Fecha: new Date().toISOString().split('T')[0]
+        Fecha: fechaHoy
       };
     });
 
-    // Envia todos los pedidos en una sola petición
     const postResponse = await fetch(API_URL_PEDIDOS, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -165,8 +229,12 @@ document.getElementById('pedirSemanaCompleta').addEventListener('click', async f
       msg.style.color = "green";
       msg.textContent = "¡Pedido registrado para toda la semana!";
       document.getElementById('pedidoForm').reset();
+      modoEdicion = false;
+      idEditar = null;
+      document.querySelector('button[type="submit"]').textContent = "Registrar Pedido";
+      document.getElementById('cancelarEdicion') && (document.getElementById('cancelarEdicion').style.display = 'none');
       cargarMenuPorSemanaYDia();
-      cargarPedidosDelDia();
+      cargarPedidosYMostrar();
     } else {
       msg.style.color = "red";
       msg.textContent = "Error al registrar pedido semanal.";
@@ -178,20 +246,55 @@ document.getElementById('pedirSemanaCompleta').addEventListener('click', async f
   }
 });
 
-// Pedidos como tarjetas (incluye Entrada y Postre)
-async function cargarPedidosDelDia() {
+// Cargar y mostrar todos los pedidos (para filtro)
+async function cargarPedidosYMostrar() {
   mostrarLoader();
-  const hoy = new Date().toISOString().split('T')[0];
-  const response = await fetch(API_URL_PEDIDOS + `&search=Fecha:${hoy}`);
+  const response = await fetch(API_URL_PEDIDOS);
   const data = await response.json();
   ocultarLoader();
+  todosLosPedidos = Array.isArray(data) ? data : [];
+  mostrarPedidosFiltrados();
+}
+
+// Filtros extra
+document.getElementById('filtroFecha').addEventListener('input', mostrarPedidosFiltrados);
+document.getElementById('filtroNombre').addEventListener('input', mostrarPedidosFiltrados);
+document.getElementById('filtroSemana').addEventListener('change', mostrarPedidosFiltrados);
+document.getElementById('filtroDia').addEventListener('change', mostrarPedidosFiltrados);
+
+// Mostrar pedidos con filtros activos
+function mostrarPedidosFiltrados() {
+  const filtroFecha = document.getElementById('filtroFecha').value;
+  const filtroNombre = normaliza(document.getElementById('filtroNombre').value);
+  const filtroSemana = document.getElementById('filtroSemana').value;
+  const filtroDia = document.getElementById('filtroDia').value;
+
+  let filtrados = todosLosPedidos;
+
+  if (filtroFecha) {
+    filtrados = filtrados.filter(p => p.Fecha === filtroFecha);
+  }
+  if (filtroNombre) {
+    filtrados = filtrados.filter(p => normaliza(p.Nombre).includes(filtroNombre));
+  }
+  if (filtroSemana) {
+    filtrados = filtrados.filter(p => p.Semana === filtroSemana);
+  }
+  if (filtroDia) {
+    filtrados = filtrados.filter(p => p.Día === filtroDia);
+  }
 
   let html = '';
-  if (data.length === 0) {
-    html = '<div style="text-align:center; color:#888; margin-top:20px;">No hay pedidos registrados hoy</div>';
+  if (filtrados.length === 0) {
+    html = '<div style="text-align:center; color:#888; margin-top:20px;">No hay pedidos registrados con este filtro</div>';
   } else {
-    html = `<div class="tarjetas-contenedor">` + data.map(pedido => `
-      <div class="tarjeta-pedido">
+    html = `<div class="tarjetas-contenedor">` + filtrados.map(pedido => `
+      <div class="tarjeta-pedido" style="position:relative;">
+        <div class="pedido-acciones">
+          <button class="btn-editar" title="Editar" data-id="${pedido.ID}">✏️</button>
+          <button class="btn-imprimir" title="Imprimir" data-id="${pedido.ID}">🖨️</button>
+          <button class="btn-borrar" title="Borrar" data-id="${pedido.ID}">🗑️</button>
+        </div>
         <div class="tp-nombre"><b>${pedido.Nombre}</b></div>
         <div class="tp-detalle"><b>Semana:</b> ${pedido.Semana.replace('Menus_', '').replace('_', ' ')}</div>
         <div class="tp-detalle"><b>Día:</b> ${pedido.Día}</div>
@@ -205,47 +308,91 @@ async function cargarPedidosDelDia() {
   document.getElementById('listaPedidos').innerHTML = html;
 }
 
-// Imprimir pedidos del día actual
-document.getElementById('imprimirPedidos').addEventListener('click', function() {
-  window.print();
+// Delegación de eventos para botones flotantes
+document.getElementById('listaPedidos').addEventListener('click', async function(e) {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const pedidoId = btn.dataset.id;
+  if (btn.classList.contains('btn-borrar')) {
+    if (confirm("¿Seguro de borrar este pedido?")) {
+      await fetch(API_URL_BASE + `/ID/${pedidoId}`, { method: "DELETE" });
+      todosLosPedidos = todosLosPedidos.filter(p => p.ID !== pedidoId);
+      mostrarPedidosFiltrados();
+    }
+  } else if (btn.classList.contains('btn-imprimir')) {
+    imprimirUnPedido(pedidoId);
+  } else if (btn.classList.contains('btn-editar')) {
+    const pedido = todosLosPedidos.find(p => p.ID === pedidoId);
+    if (!pedido) return;
+    document.getElementById('nombre').value = pedido.Nombre;
+    document.getElementById('semana').value = pedido.Semana;
+    document.getElementById('dia').value = pedido.Día;
+    await cargarMenuPorSemanaYDia();
+    document.getElementById('menu').value = pedido.Menú;
+    document.getElementById('entrada').value = pedido.Entrada;
+    document.getElementById('postre').value = pedido.Postre;
+    document.getElementById('obs').value = pedido.Observaciones || '';
+    modoEdicion = true;
+    idEditar = pedido.ID;
+    document.querySelector('button[type="submit"]').textContent = "Guardar Cambios";
+    document.getElementById('msg').textContent = "Editando pedido...";
+    document.getElementById('msg').style.color = "#1c3864";
+    document.getElementById('cancelarEdicion') && (document.getElementById('cancelarEdicion').style.display = '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 });
 
-// Exportar pedidos a CSV (incluye Entrada y Postre)
-document.getElementById('exportarPedidos').addEventListener('click', async function() {
-  mostrarLoader();
-  const hoy = new Date().toISOString().split('T')[0];
-  const response = await fetch(API_URL_PEDIDOS + `&search=Fecha:${hoy}`);
-  const data = await response.json();
-  ocultarLoader();
-  let csv = 'Nombre,Semana,Día,Menú,Entrada,Postre,Observaciones\n';
-  data.forEach(pedido => {
-    csv += `"${pedido.Nombre}","${pedido.Semana}","${pedido.Día}","${pedido.Menú}","${pedido.Entrada}","${pedido.Postre}","${pedido.Observaciones}"\n`;
-  });
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `pedidos_${hoy}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-});
+// Imprimir UN pedido (abre ventana temporal)
+function imprimirUnPedido(id) {
+  const pedido = todosLosPedidos.find(p => p.ID === id);
+  if (!pedido) return;
+  const ticket = `
+    <div style="font-family:Arial,sans-serif;max-width:80mm;padding:10px">
+      <h3 style="text-align:left;font-size:1.1em">Pedido de Almuerzo</h3>
+      <hr>
+      <b>Nombre:</b> ${pedido.Nombre}<br>
+      <b>Semana:</b> ${pedido.Semana.replace('Menus_', '').replace('_', ' ')}<br>
+      <b>Día:</b> ${pedido.Día}<br>
+      <b>Menú:</b> ${pedido.Menú}<br>
+      <b>Entrada:</b> ${pedido.Entrada}<br>
+      <b>Postre:</b> ${pedido.Postre}<br>
+      <b>Observaciones:</b> ${pedido.Observaciones || '-'}<br>
+      <b>Fecha:</b> ${pedido.Fecha}<br>
+    </div>
+  `;
+  const w = window.open('', '', 'width=340,height=600');
+  w.document.write(ticket);
+  w.document.close();
+  setTimeout(() => { w.print(); w.close(); }, 250);
+}
 
-// FILTRO: Imprimir pedidos por semana y día (incluye Entrada y Postre)
-document.getElementById('imprimirPorDia').addEventListener('click', async function() {
-  const semana = document.getElementById('filtroSemana').value;
-  const dia = document.getElementById('filtroDia').value;
-  mostrarLoader();
-  const response = await fetch(API_URL_PEDIDOS + `&search=Semana:${semana},Día:${dia}`);
-  const data = await response.json();
-  ocultarLoader();
+// Imprimir pedidos filtrados
+document.getElementById('imprimirPorDia').addEventListener('click', function() {
+  const filtroFecha = document.getElementById('filtroFecha').value;
+  const filtroNombre = normaliza(document.getElementById('filtroNombre').value);
+  const filtroSemana = document.getElementById('filtroSemana').value;
+  const filtroDia = document.getElementById('filtroDia').value;
+
+  let filtrados = todosLosPedidos;
+  if (filtroFecha) {
+    filtrados = filtrados.filter(p => p.Fecha === filtroFecha);
+  }
+  if (filtroNombre) {
+    filtrados = filtrados.filter(p => normaliza(p.Nombre).includes(filtroNombre));
+  }
+  if (filtroSemana) {
+    filtrados = filtrados.filter(p => p.Semana === filtroSemana);
+  }
+  if (filtroDia) {
+    filtrados = filtrados.filter(p => p.Día === filtroDia);
+  }
 
   let html = '';
-  if (data.length === 0) {
-    html = '<div style="text-align:center; color:#888; margin-top:20px;">No hay pedidos registrados para ese filtro</div>';
+  if (filtrados.length === 0) {
+    html = '<div style="text-align:center; color:#888; margin-top:20px;">No hay pedidos registrados con este filtro</div>';
   } else {
-    html = `<div class="tarjetas-contenedor">` + data.map(pedido => `
-      <div class="tarjeta-pedido">
+    html = `<div class="tarjetas-contenedor">` + filtrados.map(pedido => `
+      <div class="tarjeta-pedido" style="position:relative;">
         <div class="tp-nombre"><b>${pedido.Nombre}</b></div>
         <div class="tp-detalle"><b>Semana:</b> ${pedido.Semana.replace('Menus_', '').replace('_', ' ')}</div>
         <div class="tp-detalle"><b>Día:</b> ${pedido.Día}</div>
@@ -256,6 +403,11 @@ document.getElementById('imprimirPorDia').addEventListener('click', async functi
       </div>
     `).join('') + '</div>';
   }
+  // Mostrar solo la lista filtrada y lanzar impresión
+  const backup = document.getElementById('listaPedidos').innerHTML;
   document.getElementById('listaPedidos').innerHTML = html;
-  setTimeout(() => window.print(), 200);
+  setTimeout(() => {
+    window.print();
+    document.getElementById('listaPedidos').innerHTML = backup;
+  }, 200);
 });
