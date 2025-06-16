@@ -30,7 +30,7 @@ async function cargarNombres() {
   });
 }
 
-// Menú del día según semana y día
+// Menú, Entrada y Postre del día según semana y día
 async function cargarMenuPorSemanaYDia() {
   mostrarLoader();
   const semana = document.getElementById('semana').value;
@@ -40,6 +40,8 @@ async function cargarMenuPorSemanaYDia() {
   ocultarLoader();
   const menuDelDia = data.find(row => row.Día === dia);
   document.getElementById('menu').value = menuDelDia ? menuDelDia.Menú : '';
+  document.getElementById('entrada').value = menuDelDia ? menuDelDia.Entrada : '';
+  document.getElementById('postre').value = menuDelDia ? menuDelDia.Postre : '';
 }
 
 document.getElementById('semana').addEventListener('change', cargarMenuPorSemanaYDia);
@@ -52,13 +54,15 @@ window.addEventListener('DOMContentLoaded', () => {
   cargarPedidosDelDia();
 });
 
-// Registrar pedido
+// Registrar pedido (con Entrada y Postre)
 document.getElementById('pedidoForm').addEventListener('submit', async function(e) {
   e.preventDefault();
   const nombre = document.getElementById('nombre').value;
   const semana = document.getElementById('semana').value;
   const dia = document.getElementById('dia').value;
   const menu = document.getElementById('menu').value;
+  const entrada = document.getElementById('entrada').value;
+  const postre = document.getElementById('postre').value;
   const observaciones = document.getElementById('obs').value;
   const fechaHoy = new Date().toISOString().split('T')[0];
   const msg = document.getElementById('msg');
@@ -76,6 +80,8 @@ document.getElementById('pedidoForm').addEventListener('submit', async function(
           Semana: semana,
           Día: dia,
           Menú: menu,
+          Entrada: entrada,
+          Postre: postre,
           Observaciones: observaciones,
           Fecha: fechaHoy
         }]
@@ -99,7 +105,70 @@ document.getElementById('pedidoForm').addEventListener('submit', async function(
   }
 });
 
-// Pedidos como tarjetas (HOY)
+// PEDIR TODA LA SEMANA
+document.getElementById('pedirSemanaCompleta').addEventListener('click', async function() {
+  const nombre = document.getElementById('nombre').value;
+  const semana = document.getElementById('semana').value;
+  const observaciones = document.getElementById('obs').value;
+  const msg = document.getElementById('msg');
+  
+  if (!nombre || !semana) {
+    msg.style.color = "red";
+    msg.textContent = "Selecciona nombre y semana.";
+    return;
+  }
+
+  // Confirmación antes de registrar
+  if (!confirm("¿Seguro que quieres registrar los pedidos para toda la semana?")) return;
+  
+  mostrarLoader();
+
+  try {
+    // Trae todos los menús de la semana seleccionada
+    const response = await fetch(apiMenusSemana(semana));
+    const menusSemana = await response.json();
+    // Crea pedidos para lunes a viernes
+    const dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+    const pedidosSemana = dias.map(dia => {
+      const menuDia = menusSemana.find(row => row.Día === dia) || {};
+      return {
+        Nombre: nombre,
+        Semana: semana,
+        Día: dia,
+        Menú: menuDia.Menú || "",
+        Entrada: menuDia.Entrada || "",
+        Postre: menuDia.Postre || "",
+        Observaciones: observaciones,
+        Fecha: new Date().toISOString().split('T')[0]
+      };
+    });
+
+    // Envia todos los pedidos en una sola petición
+    const postResponse = await fetch(API_URL_PEDIDOS, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: pedidosSemana })
+    });
+    ocultarLoader();
+
+    if (postResponse.ok) {
+      msg.style.color = "green";
+      msg.textContent = "¡Pedido registrado para toda la semana!";
+      document.getElementById('pedidoForm').reset();
+      cargarMenuPorSemanaYDia();
+      cargarPedidosDelDia();
+    } else {
+      msg.style.color = "red";
+      msg.textContent = "Error al registrar pedido semanal.";
+    }
+  } catch (err) {
+    ocultarLoader();
+    msg.style.color = "red";
+    msg.textContent = "Error de conexión. Intenta de nuevo.";
+  }
+});
+
+// Pedidos como tarjetas (incluye Entrada y Postre)
 async function cargarPedidosDelDia() {
   mostrarLoader();
   const hoy = new Date().toISOString().split('T')[0];
@@ -117,6 +186,8 @@ async function cargarPedidosDelDia() {
         <div class="tp-detalle"><b>Semana:</b> ${pedido.Semana.replace('Menus_', '').replace('_', ' ')}</div>
         <div class="tp-detalle"><b>Día:</b> ${pedido.Día}</div>
         <div class="tp-detalle"><b>Menú:</b> ${pedido.Menú}</div>
+        <div class="tp-detalle"><b>Entrada:</b> ${pedido.Entrada ? pedido.Entrada : '-'}</div>
+        <div class="tp-detalle"><b>Postre:</b> ${pedido.Postre ? pedido.Postre : '-'}</div>
         <div class="tp-detalle"><b>Obs:</b> ${pedido.Observaciones ? pedido.Observaciones : '-'}</div>
       </div>
     `).join('') + '</div>';
@@ -129,16 +200,16 @@ document.getElementById('imprimirPedidos').addEventListener('click', function() 
   window.print();
 });
 
-// Exportar pedidos a CSV
+// Exportar pedidos a CSV (incluye Entrada y Postre)
 document.getElementById('exportarPedidos').addEventListener('click', async function() {
   mostrarLoader();
   const hoy = new Date().toISOString().split('T')[0];
   const response = await fetch(API_URL_PEDIDOS + `&search=Fecha:${hoy}`);
   const data = await response.json();
   ocultarLoader();
-  let csv = 'Nombre,Semana,Día,Menú,Observaciones\n';
+  let csv = 'Nombre,Semana,Día,Menú,Entrada,Postre,Observaciones\n';
   data.forEach(pedido => {
-    csv += `"${pedido.Nombre}","${pedido.Semana}","${pedido.Día}","${pedido.Menú}","${pedido.Observaciones}"\n`;
+    csv += `"${pedido.Nombre}","${pedido.Semana}","${pedido.Día}","${pedido.Menú}","${pedido.Entrada}","${pedido.Postre}","${pedido.Observaciones}"\n`;
   });
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = window.URL.createObjectURL(blob);
@@ -150,7 +221,7 @@ document.getElementById('exportarPedidos').addEventListener('click', async funct
   document.body.removeChild(a);
 });
 
-// FILTRO: Imprimir pedidos por semana y día
+// FILTRO: Imprimir pedidos por semana y día (incluye Entrada y Postre)
 document.getElementById('imprimirPorDia').addEventListener('click', async function() {
   const semana = document.getElementById('filtroSemana').value;
   const dia = document.getElementById('filtroDia').value;
@@ -169,6 +240,8 @@ document.getElementById('imprimirPorDia').addEventListener('click', async functi
         <div class="tp-detalle"><b>Semana:</b> ${pedido.Semana.replace('Menus_', '').replace('_', ' ')}</div>
         <div class="tp-detalle"><b>Día:</b> ${pedido.Día}</div>
         <div class="tp-detalle"><b>Menú:</b> ${pedido.Menú}</div>
+        <div class="tp-detalle"><b>Entrada:</b> ${pedido.Entrada ? pedido.Entrada : '-'}</div>
+        <div class="tp-detalle"><b>Postre:</b> ${pedido.Postre ? pedido.Postre : '-'}</div>
         <div class="tp-detalle"><b>Obs:</b> ${pedido.Observaciones ? pedido.Observaciones : '-'}</div>
       </div>
     `).join('') + '</div>';
