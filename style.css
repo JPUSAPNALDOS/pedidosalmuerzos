@@ -1,0 +1,265 @@
+body {
+  background: #f2f4f8;
+  font-family: 'Montserrat', Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  background: #fff;
+  padding: 28px 18px 30px 18px;
+  max-width: 440px;
+  margin: 40px auto 24px auto;
+  border-radius: 20px;
+  box-shadow: 0 4px 32px rgba(40,68,132,0.10);
+  transition: box-shadow .2s;
+  box-sizing: border-box;
+}
+
+.container:hover {
+  box-shadow: 0 8px 40px rgba(40,68,132,0.20);
+}
+
+h2, h3 {
+  text-align: center;
+  color: #1c3864;
+  margin-bottom: 20px;
+  letter-spacing: 1px;
+}
+
+label {
+  font-weight: 600;
+  margin-top: 14px;
+  display: block;
+  color: #264b77;
+  font-size: 1em;
+}
+
+input[type="text"],
+input[type="search"],
+input[list],
+select, textarea {
+  width: 100%;
+  padding: 9px 12px;
+  margin-top: 7px;
+  margin-bottom: 14px;
+  border: 1.6px solid #dde5f0;
+  border-radius: 10px;
+  font-size: 1em;
+  background: #f7f9fb;
+  transition: border 0.15s;
+  box-sizing: border-box;
+}
+
+input[type="text"]:focus,
+input[list]:focus,
+select:focus, textarea:focus {
+  border: 1.6px solid #4285f4;
+  outline: none;
+  background: #fff;
+}
+
+textarea {
+  min-height: 55px;
+  resize: vertical;
+}
+
+button {
+  background: #2968e2;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 0;
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-top: 12px;
+  margin-bottom: 10px;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.16s, box-shadow 0.18s;
+  box-shadow: 0 2px 8px rgba(68,68,120,0.06);
+  letter-spacing: .5px;
+}
+
+button:hover, button:focus {
+  background: #184b9e;
+  box-shadow: 0 4px 12px rgba(33,54,99,0.10);
+}
+
+hr {
+  margin: 30px 0 18px 0;
+  border: none;
+  border-top: 1.6px solid #e9eef5;
+}
+
+#msg {
+  margin-top: 15px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.03em;
+}
+
+#loader svg {
+  margin-bottom: 5px;
+}
+
+#listaPedidos {
+  margin-top: 16px;
+  overflow-x: visible;
+  padding: 0;
+}
+
+.botones-acciones {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+.filtros-impresion {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 18px;
+  align-items: center;
+  justify-content: center;
+}
+.filtros-impresion select,
+.filtros-impresion button {
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1.2px solid #dde5f0;
+  font-size: .97em;
+}
+.filtros-impresion button {
+  background: #3171e0;
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.filtros-impresion button:hover {
+  background: #194077;
+}
+
+.tarjetas-contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  max-width: 100%;
+}
+
+.tarjeta-pedido {
+  background: #f8fafc;
+  border-radius: 14px;
+  box-shadow: 0 2px 9px rgba(61,92,150,0.10);
+  padding: 14px 16px 13px 16px;
+  border-left: 5px solid #3171e0;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  transition: box-shadow 0.14s, transform 0.11s, border-color 0.18s;
+}
+.tarjeta-pedido:hover {
+  box-shadow: 0 4px 16px rgba(60,90,155,0.14);
+  transform: translateY(-2px) scale(1.02);
+  border-left: 5px solid #184b9e;
+}
+
+.tp-nombre {
+  font-size: 1.14em;
+  color: #2b436d;
+  margin-bottom: 7px;
+  font-weight: bold;
+}
+.tp-detalle {
+  font-size: .97em;
+  color: #29518e;
+  margin-bottom: 3px;
+  margin-left: 4px;
+}
+
+form > label {
+  margin-top: 18px;
+}
+form > label:first-child {
+  margin-top: 0;
+}
+form > button {
+  margin-top: 18px;
+}
+
+@media (max-width: 600px) {
+  .container {
+    max-width: 98vw;
+    margin: 8px auto;
+    padding: 13px 3vw 25px 3vw;
+    border-radius: 13px;
+  }
+  .tarjeta-pedido {
+    padding: 10px 7px 10px 10px;
+  }
+  button {
+    padding: 11px 0;
+    font-size: 1em;
+  }
+}
+
+/* SOLO PARA IMPRESIÓN - TICKET 80mm */
+@media print {
+  body, html {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .container {
+    max-width: 80mm !important;
+    width: 80mm !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 8px 0 0 0 !important;
+  }
+  h2, h3 {
+    text-align: left !important;
+    color: #222 !important;
+    font-size: 1.1em !important;
+    margin: 0 0 7px 0 !important;
+  }
+  #pedidoForm, .botones-acciones, .filtros-impresion, #msg, #loader {
+    display: none !important;
+  }
+  #listaPedidos {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .tarjetas-contenedor {
+    gap: 6px !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  .tarjeta-pedido {
+    background: #fff !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border-left: none !important;
+    border-bottom: 1px dashed #222 !important;
+    padding: 7px 0 6px 0 !important;
+    font-size: 12px !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .tp-nombre {
+    font-size: 1em !important;
+    color: #222 !important;
+    margin-bottom: 3px !important;
+  }
+  .tp-detalle {
+    color: #222 !important;
+    font-size: 0.97em !important;
+    margin-left: 0 !important;
+    margin-bottom: 2px !important;
+  }
+}

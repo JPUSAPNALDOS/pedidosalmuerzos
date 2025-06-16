@@ -1,0 +1,70 @@
+<div class="container">
+  <h2>Pedido de Almuerzos</h2>
+  <form id="pedidoForm">
+    <label for="nombre">Nombre:</label>
+    <input list="nombresList" id="nombre" required placeholder="Escribe o busca tu nombre" autocomplete="off">
+    <datalist id="nombresList"></datalist>
+    
+    <label for="semana">Semana:</label>
+    <select id="semana">
+      <option value="Menus_Semana1">Semana 1</option>
+      <option value="Menus_Semana2">Semana 2</option>
+      <option value="Menus_Semana3">Semana 3</option>
+      <option value="Menus_Semana4">Semana 4</option>
+    </select>
+    
+    <label for="dia">Día:</label>
+    <select id="dia">
+      <option value="Lunes">Lunes</option>
+      <option value="Martes">Martes</option>
+      <option value="Miércoles">Miércoles</option>
+      <option value="Jueves">Jueves</option>
+      <option value="Viernes">Viernes</option>
+    </select>
+    
+    <label for="menu">Menú del día:</label>
+    <input type="text" id="menu" readonly placeholder="Se llenará automáticamente">
+    
+    <label for="obs">Observaciones:</label>
+    <textarea id="obs" placeholder="Sin ají, más arroz, etc."></textarea>
+    
+    <button type="submit">Registrar Pedido</button>
+    <div id="msg"></div>
+  </form>
+
+  <div id="loader" style="display:none;text-align:center;margin-top:22px;">
+    <svg width="50" height="50" viewBox="0 0 50 50">
+      <circle cx="25" cy="25" r="20" fill="none" stroke="#3171e0" stroke-width="4" stroke-linecap="round" stroke-dasharray="31.4 31.4" transform="rotate(-90 25 25)">
+        <animateTransform attributeName="transform" type="rotate" values="0 25 25;360 25 25" dur="1s" repeatCount="indefinite"/>
+      </circle>
+    </svg>
+    <div style="font-size:1em; color:#3171e0; margin-top:8px;">Cargando...</div>
+  </div>
+
+  <hr>
+  <h3>Pedidos del día</h3>
+
+  <div class="botones-acciones">
+    <button id="imprimirPedidos" type="button">Imprimir pedidos del día actual</button>
+    <button id="exportarPedidos" type="button">Exportar pedidos (Excel/CSV)</button>
+  </div>
+  
+  <div class="filtros-impresion">
+    <select id="filtroSemana">
+      <option value="Menus_Semana1">Semana 1</option>
+      <option value="Menus_Semana2">Semana 2</option>
+      <option value="Menus_Semana3">Semana 3</option>
+      <option value="Menus_Semana4">Semana 4</option>
+    </select>
+    <select id="filtroDia">
+      <option value="Lunes">Lunes</option>
+      <option value="Martes">Martes</option>
+      <option value="Miércoles">Miércoles</option>
+      <option value="Jueves">Jueves</option>
+      <option value="Viernes">Viernes</option>
+    </select>
+    <button id="imprimirPorDia" type="button">Imprimir pedidos filtrados</button>
+  </div>
+
+  <div id="listaPedidos"></div>
+</div>
