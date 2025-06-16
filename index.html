@@ -58,21 +58,18 @@
     </div>
 
     <hr>
-    <h3>Pedidos del día</h3>
-
-    <div class="botones-acciones">
-      <button id="imprimirPedidos" type="button">Imprimir pedidos del día actual</button>
-      <button id="exportarPedidos" type="button">Exportar pedidos (Excel/CSV)</button>
-    </div>
+    <h3>Pedidos registrados</h3>
     
     <div class="filtros-impresion">
       <select id="filtroSemana">
+        <option value="">Todas las semanas</option>
         <option value="Menus_Semana1">Semana 1</option>
         <option value="Menus_Semana2">Semana 2</option>
         <option value="Menus_Semana3">Semana 3</option>
         <option value="Menus_Semana4">Semana 4</option>
       </select>
       <select id="filtroDia">
+        <option value="">Todos los días</option>
         <option value="Lunes">Lunes</option>
         <option value="Martes">Martes</option>
         <option value="Miércoles">Miércoles</option>
@@ -81,10 +78,14 @@
       </select>
       <button id="imprimirPorDia" type="button">Imprimir pedidos filtrados</button>
     </div>
+    
+    <div class="filtros-extra">
+      <input type="date" id="filtroFecha" placeholder="Filtrar por fecha">
+      <input type="text" id="filtroNombre" placeholder="Filtrar por nombre" autocomplete="off">
+    </div>
 
     <div id="listaPedidos"></div>
   </div>
-  
   <script src="app.js"></script>
 </body>
 </html>
