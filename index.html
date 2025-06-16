@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>Pedidos de Almuerzos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Enlace al CSS externo -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -35,10 +34,17 @@
       <label for="menu">Menú del día:</label>
       <input type="text" id="menu" readonly placeholder="Se llenará automáticamente">
       
+      <label for="entrada">Entrada del día:</label>
+      <input type="text" id="entrada" readonly placeholder="Se llenará automáticamente">
+
+      <label for="postre">Postre del día:</label>
+      <input type="text" id="postre" readonly placeholder="Se llenará automáticamente">
+      
       <label for="obs">Observaciones:</label>
       <textarea id="obs" placeholder="Sin ají, más arroz, etc."></textarea>
       
       <button type="submit">Registrar Pedido</button>
+      <button type="button" id="pedirSemanaCompleta" style="background:#10b981; margin-bottom:16px;">Pedir toda la semana</button>
       <div id="msg"></div>
     </form>
 
@@ -79,7 +85,6 @@
     <div id="listaPedidos"></div>
   </div>
   
-  <!-- Enlace a tu JS externo -->
   <script src="app.js"></script>
 </body>
 </html>
