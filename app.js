@@ -1,413 +1,919 @@
-const API_URL_BASE = "https://sheetdb.io/api/v1/eywhbd01uz59s";
-const API_URL_NOMBRES = API_URL_BASE + "?sheet=Nombres";
-const API_URL_PEDIDOS = API_URL_BASE + "?sheet=Pedidos";
+// 1. Configuración Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyCyOM53d_eMSOi4AOjbS2roW7ZTZCJFRoM",
+  authDomain: "pedidos-maracuya-villa-gratia.firebaseapp.com",
+  databaseURL: "https://pedidos-maracuya-villa-gratia-default-rtdb.firebaseio.com",
+  projectId: "pedidos-maracuya-villa-gratia",
+  storageBucket: "pedidos-maracuya-villa-gratia.appspot.com",
+  messagingSenderId: "133347942396",
+  appId: "1:133347942396:web:d28e071c2449b8544c1c79"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-function apiMenusSemana(semana) {
-  return API_URL_BASE + `?sheet=${semana}`;
-}
+// 2. Fecha actual y helpers
+function pad(n){return n<10?'0'+n:n;}
+const hoy = new Date();
+const yyyy = hoy.getFullYear();
+const mm = pad(hoy.getMonth()+1);
+const dd = pad(hoy.getDate());
+const fechaStr = `${yyyy}-${mm}-${dd}`;
+document.getElementById('fechaActual').textContent = hoy.toLocaleDateString('es-PE', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'});
+document.getElementById('fecha-pedido').value = fechaStr;
+document.getElementById('metodo-pago').value = "Credito";
 
-function normaliza(str) {
-  return (str || "")
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g,"")
-    .toLowerCase();
-}
+// --- ARRAYS PARA PLATOS DE DESAYUNOS Y VARIADOS ---
+let listaJugos = [];
+let listaFondos = [];
+let listaPlatosVariados = [];
 
-// Loader
-function mostrarLoader() {
-  document.getElementById('loader').style.display = '';
-}
-function ocultarLoader() {
-  document.getElementById('loader').style.display = 'none';
-}
+// --- CARGA LOS PLATOS FIJOS AL INICIAR ---
+db.ref('Jugos').on('value', snap => {
+  listaJugos = [];
+  snap.forEach(child => {
+    const val = child.val();
+    if(val) listaJugos.push(val.Nombre || val.nombre || val);
+  });
+});
+db.ref('Fondos').on('value', snap => {
+  listaFondos = [];
+  snap.forEach(child => {
+    const val = child.val();
+    if(val) listaFondos.push(val.Nombre || val.nombre || val);
+  });
+});
+db.ref('Variados').on('value', snap => {
+  listaPlatosVariados = [];
+  snap.forEach(child => {
+    const val = child.val();
+    if(val) listaPlatosVariados.push(val.Nombre || val.nombre || val);
+  });
+});
 
-// Variables para edición y filtros
-let todosLosPedidos = [];
-let modoEdicion = false;
-let idEditar = null;
+// ------------------- SELECTS DEPENDIENTES DESAYUNO (BEBIDAS Y FONDO) -------------------
+let categoriasBebidas = [];
+let productosPorCategoriaBebidas = {};
+let categoriasFondo = [];
+let productosPorCategoriaFondo = {};
 
-// Nombres para autocompletar
-async function cargarNombres() {
-  mostrarLoader();
-  const response = await fetch(API_URL_NOMBRES);
-  const data = await response.json();
-  ocultarLoader();
-  const dataList = document.getElementById('nombresList');
-  dataList.innerHTML = '';
-  data.forEach(row => {
-    if(row.Nombre && row.Nombre.trim() !== "") {
-      dataList.innerHTML += `<option value="${row.Nombre}">`;
-    }
+function cargarDesayunoFirebase() {
+  db.ref('Desayunos').once('value').then(snap => {
+    categoriasBebidas = [];
+    productosPorCategoriaBebidas = {};
+    categoriasFondo = [];
+    productosPorCategoriaFondo = {};
+
+    snap.forEach(child => {
+      const val = child.val();
+
+      // Bebidas
+      if(val.tipo === "Bebidas") {
+        if(!categoriasBebidas.includes(val.categoria)) {
+          categoriasBebidas.push(val.categoria);
+          productosPorCategoriaBebidas[val.categoria] = [];
+        }
+        productosPorCategoriaBebidas[val.categoria].push(val.producto);
+      }
+
+      // Fondo
+      if(val.tipo === "Fondo") {
+        if(!categoriasFondo.includes(val.categoria)) {
+          categoriasFondo.push(val.categoria);
+          productosPorCategoriaFondo[val.categoria] = [];
+        }
+        productosPorCategoriaFondo[val.categoria].push(val.producto);
+      }
+    });
+
+    llenarSelectSimple('bebidas-categoria', categoriasBebidas);
+    llenarSelectSimple('fondo-categoria', categoriasFondo);
+    llenarSelectSimple('bebidas-producto', []);
+    llenarSelectSimple('fondo-producto', []);
   });
 }
 
-// Menú, Entrada y Postre del día según semana y día (robusto)
-async function cargarMenuPorSemanaYDia() {
-  mostrarLoader();
-  const semana = document.getElementById('semana').value;
-  const dia = document.getElementById('dia').value;
-  const response = await fetch(apiMenusSemana(semana));
-  const data = await response.json();
-  ocultarLoader();
-  const menuDelDia = data.find(row => normaliza(row.Día) === normaliza(dia));
-  document.getElementById('menu').value = menuDelDia ? menuDelDia.Menú : '';
-  document.getElementById('entrada').value = menuDelDia ? menuDelDia.Entrada : '';
-  document.getElementById('postre').value = menuDelDia ? menuDelDia.Postre : '';
+function llenarSelectSimple(id, array) {
+  const sel = document.getElementById(id);
+  if(!sel) return;
+  sel.innerHTML = `<option value="">Selecciona</option>`;
+  array.forEach(val => {
+    sel.innerHTML += `<option value="${val}">${val}</option>`;
+  });
 }
 
-document.getElementById('semana').addEventListener('change', cargarMenuPorSemanaYDia);
-document.getElementById('dia').addEventListener('change', cargarMenuPorSemanaYDia);
+document.addEventListener('DOMContentLoaded', function() {
+  cargarDesayunoFirebase();
 
-window.addEventListener('DOMContentLoaded', () => {
-  cargarNombres();
-  cargarMenuPorSemanaYDia();
-  cargarPedidosYMostrar();
+  document.getElementById('bebidas-categoria').addEventListener('change', function(){
+    const cat = this.value;
+    llenarSelectSimple('bebidas-producto', cat ? productosPorCategoriaBebidas[cat] : []);
+  });
+  document.getElementById('fondo-categoria').addEventListener('change', function(){
+    const cat = this.value;
+    llenarSelectSimple('fondo-producto', cat ? productosPorCategoriaFondo[cat] : []);
+  });
 });
 
-// REGISTRO / EDICIÓN de pedido
-document.getElementById('pedidoForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const nombre = document.getElementById('nombre').value;
-  const semana = document.getElementById('semana').value;
-  const dia = document.getElementById('dia').value;
-  const menu = document.getElementById('menu').value;
-  const entrada = document.getElementById('entrada').value;
-  const postre = document.getElementById('postre').value;
-  const observaciones = document.getElementById('obs').value;
-  const fechaHoy = new Date().toISOString().split('T')[0];
-  const msg = document.getElementById('msg');
+document.getElementById('tipo-pedido').addEventListener('change', function(){
+  if(this.value === "Desayunos") cargarDesayunoFirebase();
+  mostrarOcultarPromoBtn();
+  actualizarLabelsPorTipo();
+  cargarMenuPorFechaYTipo();
+});
 
-  msg.style.color = "black";
-  mostrarLoader();
-
-  if (!modoEdicion) {
-    // REGISTRO NUEVO
-    msg.textContent = "Enviando pedido...";
-    const nuevoID = Date.now().toString();
-    try {
-      const response = await fetch(API_URL_PEDIDOS, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          data: [{
-            ID: nuevoID,
-            Nombre: nombre,
-            Semana: semana,
-            Día: dia,
-            Menú: menu,
-            Entrada: entrada,
-            Postre: postre,
-            Observaciones: observaciones,
-            Fecha: fechaHoy
-          }]
-        })
-      });
-      ocultarLoader();
-      if (response.ok) {
-        msg.style.color = "green";
-        msg.textContent = "¡Pedido registrado exitosamente!";
-        this.reset();
-        modoEdicion = false;
-        idEditar = null;
-        document.querySelector('button[type="submit"]').textContent = "Registrar Pedido";
-        document.getElementById('cancelarEdicion') && (document.getElementById('cancelarEdicion').style.display = 'none');
-        cargarMenuPorSemanaYDia();
-        cargarPedidosYMostrar();
-      } else {
-        msg.style.color = "red";
-        msg.textContent = "Error al registrar pedido.";
-      }
-    } catch (err) {
-      ocultarLoader();
-      msg.style.color = "red";
-      msg.textContent = "Error de conexión. Intenta de nuevo.";
-    }
+// --- CAMBIAR LABELS Y OCULTAR/mostrar INPUTS SEGÚN TIPO ---
+function actualizarLabelsPorTipo() {
+  const tipo = document.getElementById('tipo-pedido').value;
+  const bloqueDesayuno = document.getElementById('bloque-desayuno');
+  const bloqueGeneral = document.getElementById('bloque-general');
+  if(bloqueDesayuno && bloqueGeneral) {
+    bloqueDesayuno.style.display = (tipo === "Desayunos") ? '' : 'none';
+    bloqueGeneral.style.display = (tipo === "Desayunos") ? 'none' : '';
+  }
+  const grupoEntrada = document.getElementById('grupo-entrada');
+  const grupoPostre = document.getElementById('grupo-postre');
+  if (tipo === "Variado") {
+    if (grupoEntrada) grupoEntrada.style.display = 'none';
+    if (grupoPostre) grupoPostre.style.display = 'none';
+    document.getElementById('entrada').value = "";
+    document.getElementById('postre').value = "";
+  } else if (tipo === "Desayunos") {
+    if (grupoEntrada) grupoEntrada.style.display = '';
+    if (grupoPostre) grupoPostre.style.display = 'none';
+    document.getElementById('postre').value = "nullahi";
   } else {
-    // MODO EDICIÓN: PATCH (¡USANDO SOLO API_URL_BASE!)
-    msg.textContent = "Guardando cambios...";
-    try {
-      const response = await fetch(API_URL_BASE + `/ID/${idEditar}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          data: {
-            Nombre: nombre,
-            Semana: semana,
-            Día: dia,
-            Menú: menu,
-            Entrada: entrada,
-            Postre: postre,
-            Observaciones: observaciones,
-            Fecha: fechaHoy
-          }
-        })
-      });
-      ocultarLoader();
-      if (response.ok) {
-        msg.style.color = "green";
-        msg.textContent = "¡Pedido actualizado exitosamente!";
-        this.reset();
-        modoEdicion = false;
-        idEditar = null;
-        document.querySelector('button[type="submit"]').textContent = "Registrar Pedido";
-        document.getElementById('cancelarEdicion') && (document.getElementById('cancelarEdicion').style.display = 'none');
-        cargarMenuPorSemanaYDia();
-        cargarPedidosYMostrar();
-      } else {
-        msg.style.color = "red";
-        msg.textContent = "Error al actualizar el pedido.";
-      }
-    } catch (err) {
-      ocultarLoader();
-      msg.style.color = "red";
-      msg.textContent = "Error de conexión. Intenta de nuevo.";
+    if (grupoEntrada) grupoEntrada.style.display = '';
+    if (grupoPostre) grupoPostre.style.display = '';
+  }
+  document.getElementById('label-menu-dia').textContent = (tipo === "Desayunos") ? "Jugo" : "Plato";
+  document.getElementById('label-entrada').textContent = (tipo === "Desayunos") ? "Fondo" : "Entrada";
+  document.getElementById('label-postre').textContent = (tipo === "Desayunos") ? "" : "Postre";
+  const menuInput = document.getElementById('menu-dia');
+  const entradaInput = document.getElementById('entrada');
+  if (menuInput && entradaInput) {
+    if (tipo === "Almuerzo") {
+      menuInput.setAttribute('readonly', true);
+      menuInput.classList.add('input-disabled');
+      entradaInput.setAttribute('readonly', true);
+      entradaInput.classList.add('input-disabled');
+    } else {
+      menuInput.removeAttribute('readonly');
+      menuInput.classList.remove('input-disabled');
+      entradaInput.removeAttribute('readonly');
+      entradaInput.classList.remove('input-disabled');
     }
   }
-});
+}
+document.getElementById('tipo-pedido').addEventListener('change', actualizarLabelsPorTipo);
+actualizarLabelsPorTipo();
 
-// Cancelar edición (opcional, solo si agregaste el botón en el HTML)
-if (document.getElementById('cancelarEdicion')) {
-  document.getElementById('pedidoForm').addEventListener('input', function() {
-    if (modoEdicion) document.getElementById('cancelarEdicion').style.display = '';
-  });
-  document.getElementById('cancelarEdicion').addEventListener('click', function() {
-    document.getElementById('pedidoForm').reset();
-    modoEdicion = false;
-    idEditar = null;
-    document.querySelector('button[type="submit"]').textContent = "Registrar Pedido";
-    document.getElementById('msg').textContent = '';
-    this.style.display = 'none';
-  });
+function cargarMenuPorFechaYTipo() {
+  const fecha = document.getElementById('fecha-pedido').value;
+  const tipo = document.getElementById('tipo-pedido').value;
+  if (tipo === "Almuerzo") {
+    db.ref(`Almuerzos/${fecha}`).once('value').then(snap => {
+      const menuDia = snap.val();
+      document.getElementById('menu-dia').value = (menuDia && menuDia["Menú"]) ? menuDia["Menú"] : 'No hay menú';
+      document.getElementById('entrada').value = (menuDia && menuDia["Entrada"]) ? menuDia["Entrada"] : 'No hay entrada';
+      document.getElementById('postre').value = (menuDia && menuDia["Postre"]) ? menuDia["Postre"] : 'No hay postre';
+    });
+  } else {
+    document.getElementById('menu-dia').value = "";
+    document.getElementById('entrada').value = "";
+    document.getElementById('postre').value = (tipo === "Desayunos") ? "nullahi" : "";
+  }
+  actualizarLabelsPorTipo();
+}
+document.getElementById('fecha-pedido').addEventListener('change', cargarMenuPorFechaYTipo);
+document.getElementById('tipo-pedido').addEventListener('change', cargarMenuPorFechaYTipo);
+cargarMenuPorFechaYTipo();
+actualizarLabelsPorTipo();
+
+function mostrarOcultarPromoBtn() {
+  const tipo = document.getElementById('tipo-pedido').value;
+  document.getElementById('bloque-promocion-btn').style.display = (tipo === "Almuerzo") ? '' : 'none';
+  document.getElementById('promo-semanal-block').style.display = 'none';
+  document.getElementById('msg-promocion').textContent = '';
+}
+mostrarOcultarPromoBtn();
+
+function formato(fecha) {
+  let yyyy = fecha.getFullYear();
+  let mm = (fecha.getMonth()+1).toString().padStart(2, '0');
+  let dd = fecha.getDate().toString().padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
-// PEDIR TODA LA SEMANA (con confirmación)
-document.getElementById('pedirSemanaCompleta').addEventListener('click', async function() {
-  const nombre = document.getElementById('nombre').value;
-  const semana = document.getElementById('semana').value;
-  const observaciones = document.getElementById('obs').value;
-  const msg = document.getElementById('msg');
-  
-  if (!nombre || !semana) {
-    msg.style.color = "red";
-    msg.textContent = "Selecciona nombre y semana.";
+// Calcula lunes y viernes para cualquier fecha (yyyy-mm-dd)
+function getLunesViernesSemana(fechaInicio) {
+  let fecha = new Date(fechaInicio);
+  let day = fecha.getDay();
+  if(day === 6) {
+    fecha.setDate(fecha.getDate() + 2);
+  } else if(day === 0) {
+    fecha.setDate(fecha.getDate() + 1);
+  }
+  day = fecha.getDay();
+  let diffToMonday = day === 0 ? -6 : 1 - day;
+  let lunes = new Date(fecha);
+  lunes.setDate(fecha.getDate() + diffToMonday);
+  let viernes = new Date(lunes);
+  viernes.setDate(lunes.getDate() + 4);
+  return { lunes, viernes };
+}
+
+// --- BLOQUE DE PROMOCIÓN SEMANAL ---
+document.getElementById('btn-promocion-semanal').addEventListener('click', function() {
+  document.activeElement && document.activeElement.blur && document.activeElement.blur();
+  const nombre = document.getElementById('nombre-nino').value.trim();
+  const fechaSeleccionada = document.getElementById('fecha-pedido').value;
+  const observaciones = document.getElementById('observaciones').value.trim();
+  const pagado = document.getElementById('metodo-pago').value === "Pagado";
+  if (!nombre || nombre.length < 2) {
+    document.getElementById('msg-promocion').textContent = 'Debes elegir un nombre válido';
+    return;
+  }
+  if (!fechaSeleccionada) {
+    document.getElementById('msg-promocion').textContent = 'Debes elegir una fecha válida';
+    return;
+  }
+  let {lunes} = getLunesViernesSemana(fechaSeleccionada);
+  let fechasSemana = [];
+  let tmp = new Date(lunes);
+  for (let i=0; i<5; i++) {
+    fechasSemana.push(formato(tmp));
+    tmp.setDate(tmp.getDate()+1);
+  }
+  let promesas = fechasSemana.map(f =>
+    db.ref('pedidos')
+      .orderByChild('fecha')
+      .equalTo(f)
+      .once('value')
+      .then(snap => {
+        let yaHay = false;
+        snap.forEach(child => {
+          let val = child.val();
+          if(val.nombre && val.nombre.toLowerCase() === nombre.toLowerCase() && val.tipo === "Almuerzo") yaHay = true;
+        });
+        return {fecha: f, yaHay};
+      })
+  );
+  Promise.all(promesas).then(resultados => {
+    let conflictivos = resultados.filter(r => r.yaHay);
+    if (conflictivos.length > 0) {
+      document.getElementById('msg-promocion').textContent =
+        "El alumno ya tiene pedido registrado en: " +
+        conflictivos.map(r => r.fecha).join(", ") +
+        ". Elimina esos pedidos antes de registrar una nueva promoción semanal.";
+      return;
+    }
+    let registros = fechasSemana.map(f => {
+      return db.ref('Almuerzos/' + f).once('value').then(snapMenu => {
+        let menuDia = snapMenu.val() || {};
+        let menu = menuDia["Menú"] || '';
+        let entrada = menuDia["Entrada"] || '';
+        let postre = menuDia["Postre"] || '';
+        const nuevoRef = db.ref('pedidos').push();
+        const pedido = {
+          id: nuevoRef.key,
+          nombre,
+          fecha: f,
+          tipo: "Almuerzo",
+          menu,
+          entrada,
+          postre,
+          pagado,
+          estado: "Pendiente",
+          observaciones,
+          grado: window._gradoSeleccionado || '',
+          nivel: window._nivelSeleccionado || '',
+          salon: window._salonSeleccionado || ''
+        };
+        return nuevoRef.set(pedido);
+      });
+    });
+    Promise.all(registros).then(()=>{
+      document.getElementById('msg-promocion').textContent = "¡Promoción semanal registrada correctamente!";
+      document.getElementById('form-pedido').reset();
+      document.getElementById('fecha-pedido').value = fechaStr;
+      cargarMenuPorFechaYTipo();
+      actualizarLabelsPorTipo();
+      cargarPedidos(document.getElementById('fecha-mostrar').value || fechaStr);
+      setTimeout(()=>document.getElementById('msg-promocion').textContent = '', 2800);
+    });
+  });
+});
+
+// --- AUTOCOMPLETADO DE VARIADOS ---
+window.filtrarPlatos = function(mantenerAbierto = false) {
+  const tipo = document.getElementById('tipo-pedido').value;
+  if (tipo !== "Variado") return;
+  const input = document.getElementById('menu-dia');
+  const sugerencias = document.getElementById('sugerenciasPlatos');
+  const val = input.value.trim().toLowerCase();
+  sugerencias.innerHTML = "";
+  if (val.length < 1) { sugerencias.classList.remove('active'); return; }
+  const encontrados = listaPlatosVariados.filter(j => j.toLowerCase().includes(val));
+  encontrados.forEach(j => {
+    let div = document.createElement('div');
+    div.textContent = j;
+    div.onclick = function(e) {
+      input.value = j;
+      sugerencias.classList.remove('active');
+      sugerencias.innerHTML = "";
+    };
+    sugerencias.appendChild(div);
+  });
+  sugerencias.classList.add('active');
+};
+document.getElementById('menu-dia').addEventListener('input', function(){
+  const tipo = document.getElementById('tipo-pedido').value;
+  if (tipo === "Variado") filtrarPlatos(true);
+});
+document.getElementById('menu-dia').addEventListener('focus', function(){
+  const tipo = document.getElementById('tipo-pedido').value;
+  if (tipo === "Variado") filtrarPlatos(true);
+});
+
+// --- AUTOCOMPLETADO DE NOMBRES ---
+let listaAlumnos = [];
+db.ref('Nombres').on('value', snap => {
+  listaAlumnos = [];
+  snap.forEach(child => {
+    const val = child.val();
+    val._id = child.key;
+    listaAlumnos.push(val);
+  });
+});
+window._gradoSeleccionado = '';
+window._nivelSeleccionado = '';
+window._salonSeleccionado = '';
+
+let alumnoSeleccionadoKey = '';
+const btnEditarEst = document.getElementById('btn-editar-estudiante');
+
+document.getElementById('nombre-nino').addEventListener('input', function() {
+  const valor = this.value.trim().toLowerCase();
+  const encontrado = listaAlumnos.find(
+    a => (a.Nombre || '').trim().toLowerCase() === valor
+  );
+  if (encontrado) {
+    alumnoSeleccionadoKey = encontrado._id;
+    btnEditarEst.style.display = '';
+    document.getElementById('infoAlumno').innerHTML = `
+      <p><strong>Nombre:</strong> ${encontrado.Nombre || ''}</p>
+      <p><strong>Grado:</strong> ${encontrado.Grado || ''}</p>
+      <p><strong>Nivel:</strong> ${encontrado.Nivel || ''}</p>
+      <p><strong>Salón:</strong> ${encontrado.Salon || ''}</p>
+    `;
+    window._gradoSeleccionado = encontrado.Grado || '';
+    window._nivelSeleccionado = encontrado.Nivel || '';
+    window._salonSeleccionado = encontrado.Salon || '';
+  } else {
+    alumnoSeleccionadoKey = '';
+    btnEditarEst.style.display = 'none';
+    if (this.value.trim() === '') {
+      document.getElementById('infoAlumno').innerHTML = '';
+      window._gradoSeleccionado = '';
+      window._nivelSeleccionado = '';
+      window._salonSeleccionado = '';
+    }
+  }
+  window.filtrarNombres && window.filtrarNombres();
+});
+
+window.filtrarNombres = function() {
+  const input = document.getElementById('nombre-nino');
+  const nombreInput = input.value.trim().toLowerCase();
+  const sugerencias = document.getElementById('sugerenciasNombres');
+  sugerencias.innerHTML = "";
+  if (nombreInput.length < 2) {
+    sugerencias.classList.remove('active');
+    return;
+  }
+  if (!listaAlumnos.length) {
+    sugerencias.classList.remove('active');
+    document.getElementById('infoAlumno').innerHTML =
+      '<span style="color: #999; font-size: 0.9em;">Cargando estudiantes...</span>';
+    return;
+  }
+  const encontrados = listaAlumnos.filter(alum =>
+    alum.Nombre && alum.Nombre.toLowerCase().includes(nombreInput)
+  );
+  if (!encontrados.length) {
+    sugerencias.classList.remove('active');
+    document.getElementById('infoAlumno').innerHTML =
+      '<span style="color: #999; font-size: 0.9em;">Sin coincidencias.</span>';
+    return;
+  }
+  encontrados.forEach(alum => {
+    let div = document.createElement('div');
+    div.textContent = alum.Nombre + " (" + (alum.Grado || '-') + ", " + (alum.Salon || '-') + ")";
+    div.onclick = function() {
+      input.value = alum.Nombre;
+      document.getElementById('infoAlumno').innerHTML = `
+        <p><strong>Nombre:</strong> ${alum.Nombre || ''}</p>
+        <p><strong>Grado:</strong> ${alum.Grado || ''}</p>
+        <p><strong>Nivel:</strong> ${alum.Nivel || ''}</p>
+        <p><strong>Salón:</strong> ${alum.Salon || ''}</p>
+      `;
+      sugerencias.classList.remove('active');
+      window._gradoSeleccionado = alum.Grado || '';
+      window._nivelSeleccionado = alum.Nivel || '';
+      window._salonSeleccionado = alum.Salon || '';
+      alumnoSeleccionadoKey = alum._id;
+      btnEditarEst.style.display = '';
+    };
+    sugerencias.appendChild(div);
+  });
+  sugerencias.classList.add('active');
+};
+
+document.getElementById('nombre-nino').addEventListener('focus', window.filtrarNombres);
+
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.form-group')) {
+    document.getElementById('sugerenciasNombres').classList.remove('active');
+  }
+});
+document.getElementById('nombre-nino').addEventListener('keydown', function(e){
+  if (e.key === 'Enter') e.preventDefault();
+});
+
+// BOTÓN EDITAR - Modal edición
+const modalBg = document.getElementById('modal-estudiante-bg');
+const modal = document.getElementById('modal-estudiante');
+const formEst = document.getElementById('form-estudiante');
+const inputNombre = document.getElementById('modal-nombre');
+const selectNivel = document.getElementById('modal-nivel');
+const selectGrado = document.getElementById('modal-grado');
+const inputSalon = document.getElementById('modal-salon');
+const msgEst = document.getElementById('msg-estudiante-modal');
+const btnCerrarModal = document.getElementById('btn-cerrar-modal-est');
+const modalTitulo = document.getElementById('modal-estudiante-titulo');
+const gradosPorNivel = {
+  'Primaria': [
+    '1er grado','2do grado','3er grado','4to grado','5to grado','6to grado'
+  ],
+  'Secundaria': [
+    '1ro secundaria','2do secundaria','3ro secundaria','4to secundaria','5to secundaria'
+  ]
+};
+
+btnEditarEst.onclick = function() {
+  if(!alumnoSeleccionadoKey) return;
+  const alum = listaAlumnos.find(a => a._id === alumnoSeleccionadoKey);
+  if(!alum) return;
+  formEst.reset();
+  msgEst.textContent = '';
+  modalTitulo.textContent = 'Editar estudiante';
+  inputNombre.value = alum.Nombre || '';
+  selectNivel.value = alum.Nivel || '';
+  selectNivel.onchange();
+  selectGrado.value = alum.Grado || '';
+  inputSalon.value = alum.Salon || '';
+  formEst.dataset.mode = 'editar';
+  formEst.dataset.key = alum._id;
+  modalBg.style.display = 'block';
+  setTimeout(()=>inputNombre.focus(), 180);
+};
+
+selectNivel.onchange = function() {
+  let nivel = this.value;
+  selectGrado.innerHTML = '<option value="">Selecciona</option>';
+  if (nivel && gradosPorNivel[nivel]) {
+    gradosPorNivel[nivel].forEach(g => {
+      selectGrado.innerHTML += `<option value="${g}">${g}</option>`;
+    });
+  }
+};
+btnCerrarModal.onclick = () => { modalBg.style.display = 'none'; };
+
+formEst.onsubmit = e => {
+  e.preventDefault();
+  let nombre = inputNombre.value.trim();
+  let nivel = selectNivel.value;
+  let grado = selectGrado.value;
+  let salon = inputSalon.value.trim();
+
+  if(!nombre || !nivel || !grado) {
+    msgEst.textContent = 'Completa todos los campos obligatorios.';
+    return;
+  }
+  if(formEst.dataset.mode === 'editar') {
+    let key = formEst.dataset.key;
+    if(!key) { msgEst.textContent = 'Error al editar. Intenta otra vez.'; return; }
+    db.ref('Nombres/'+key).update({
+      Nombre: nombre,
+      Nivel: nivel,
+      Grado: grado,
+      Salon: salon
+    }).then(()=>{
+      msgEst.textContent = '¡Estudiante actualizado!';
+      modalBg.style.display = 'none';
+      db.ref('Nombres').once('value', snap => {
+        listaAlumnos = [];
+        snap.forEach(child => {
+          const val = child.val(); val._id = child.key; listaAlumnos.push(val);
+        });
+      });
+    });
+  } else {
+    const yaExiste = listaAlumnos.some(a =>
+      a.Nombre && a.Nombre.trim().toLowerCase() === nombre.toLowerCase()
+    );
+    if(yaExiste) {
+      msgEst.textContent = 'Ya existe un estudiante con ese nombre.';
+      return;
+    }
+    const nuevoRef = db.ref('Nombres').push();
+    nuevoRef.set({
+      Nombre: nombre,
+      Nivel: nivel,
+      Grado: grado,
+      Salon: salon
+    }).then(()=>{
+      msgEst.textContent = '¡Estudiante agregado!';
+      modalBg.style.display = 'none';
+      db.ref('Nombres').once('value', snap => {
+        listaAlumnos = [];
+        snap.forEach(child => {
+          const val = child.val(); val._id = child.key; listaAlumnos.push(val);
+        });
+      });
+    });
+  }
+};
+modalBg.onclick = function(e){
+  if(e.target === modalBg) modalBg.style.display = 'none';
+};
+
+// -------------------- FILTRO FECHA MOSTRAR PEDIDOS ---------------------
+document.getElementById('fecha-mostrar').addEventListener('change', function(){
+  const fecha = this.value || fechaStr;
+  cargarPedidos(fecha);
+});
+
+// -------------------- 5. Registrar pedido individual ---------------------
+document.getElementById('form-pedido').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const nombre = document.getElementById('nombre-nino').value.trim();
+  const fecha = document.getElementById('fecha-pedido').value;
+  const tipo = document.getElementById('tipo-pedido').value;
+
+  let menu = '', entrada = '', postre = '';
+  if (tipo === "Desayunos") {
+    menu = document.getElementById('bebidas-producto').value;
+    entrada = document.getElementById('fondo-producto').value;
+    postre = "";
+  } else if (tipo === "Variado") {
+    menu = document.getElementById('menu-dia').value;
+    entrada = "";
+    postre = "";
+  } else {
+    menu = document.getElementById('menu-dia').value;
+    entrada = document.getElementById('entrada').value;
+    postre = document.getElementById('postre').value;
+  }
+
+  const pagado = document.getElementById('metodo-pago').value === "Pagado";
+  const observaciones = document.getElementById('observaciones').value.trim();
+
+  if (!nombre || nombre.length < 2) {
+    alert('Debes elegir un nombre válido');
     return;
   }
 
-  if (!confirm("¿Seguro que quieres registrar los pedidos para toda la semana?")) return;
-  
-  mostrarLoader();
+  if (tipo === "Almuerzo") {
+    db.ref('pedidos')
+      .orderByChild('fecha')
+      .equalTo(fecha)
+      .once('value').then(snap => {
+        let yaHay = false;
+        snap.forEach(child => {
+          let val = child.val();
+          if(val.nombre && val.nombre.toLowerCase() === nombre.toLowerCase() && val.tipo === "Almuerzo") yaHay = true;
+        });
+        if (yaHay) {
+          alert('¡Este alumno ya tiene pedido de almuerzo para ese día!');
+          return;
+        }
+        guardarPedido();
+      });
+  } else {
+    guardarPedido();
+  }
 
-  try {
-    const response = await fetch(apiMenusSemana(semana));
-    const menusSemana = await response.json();
-    const dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
-    const fechaHoy = new Date().toISOString().split('T')[0];
-    const pedidosSemana = dias.map(dia => {
-      const menuDia = menusSemana.find(row => normaliza(row.Día) === normaliza(dia)) || {};
-      return {
-        ID: Date.now() + Math.floor(Math.random() * 10000),
-        Nombre: nombre,
-        Semana: semana,
-        Día: dia,
-        Menú: menuDia.Menú || "",
-        Entrada: menuDia.Entrada || "",
-        Postre: menuDia.Postre || "",
-        Observaciones: observaciones,
-        Fecha: fechaHoy
-      };
+  function guardarPedido() {
+    const nuevoRef = window._editandoPedidoID
+      ? db.ref('pedidos/' + window._editandoPedidoID)
+      : db.ref('pedidos').push();
+    const pedido = {
+      id: nuevoRef.key,
+      nombre,
+      fecha,
+      tipo,
+      menu,
+      entrada,
+      postre,
+      pagado,
+      estado: "Pendiente",
+      observaciones,
+      grado: window._gradoSeleccionado || '',
+      nivel: window._nivelSeleccionado || '',
+      salon: window._salonSeleccionado || ''
+    };
+    nuevoRef.set(pedido).then(()=>{
+      document.getElementById('form-pedido').reset();
+      document.getElementById('fecha-pedido').value = fechaStr;
+      document.getElementById('infoAlumno').innerHTML = '';
+      window._gradoSeleccionado = '';
+      window._nivelSeleccionado = '';
+      window._salonSeleccionado = '';
+      window._editandoPedidoID = null;
+      cargarMenuPorFechaYTipo();
+      actualizarLabelsPorTipo();
+      cargarPedidos(document.getElementById('fecha-mostrar').value || fechaStr);
+      alert("Pedido registrado exitosamente!");
     });
+  }
+});
 
-    const postResponse = await fetch(API_URL_PEDIDOS, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: pedidosSemana })
-    });
-    ocultarLoader();
+// 6. Cargar pedidos de una fecha
+function cargarPedidos(fecha) {
+  db.ref('pedidos').orderByChild('fecha').equalTo(fecha).on('value', snap => {
+    const pedidos = snap.val() || {};
+    renderizaPedidos(Object.values(pedidos));
+    resumenPedidos(Object.values(pedidos));
+  });
+}
 
-    if (postResponse.ok) {
-      msg.style.color = "green";
-      msg.textContent = "¡Pedido registrado para toda la semana!";
-      document.getElementById('pedidoForm').reset();
-      modoEdicion = false;
-      idEditar = null;
-      document.querySelector('button[type="submit"]').textContent = "Registrar Pedido";
-      document.getElementById('cancelarEdicion') && (document.getElementById('cancelarEdicion').style.display = 'none');
-      cargarMenuPorSemanaYDia();
-      cargarPedidosYMostrar();
+// 7. Renderizar tabla
+function renderizaPedidos(lista) {
+  const tbody = document.getElementById('tbody-pedidos');
+  tbody.innerHTML = "";
+  if(!lista.length){
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#aaa;">No hay pedidos hoy.</td></tr>`;
+    return;
+  }
+  lista.forEach(p => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${p.nombre || '-'}</td>
+        <td>${p.tipo || '-'}</td>
+        <td>${p.menu||'-'}<br><span class="small">${p.entrada||''} ${p.postre&&p.postre!=="nullahi" ? '· '+p.postre : ''}</span></td>
+        <td><span class="badge badge-${p.pagado ? 'pagado' : 'pendiente'}">${p.pagado ? 'Pagado' : 'Pendiente'}</span></td>
+        <td><span class="badge badge-${p.estado==='Pendiente'?'pendiente':(p.estado==='Entregado'?'pagado':'rechazado')}">${p.estado}</span></td>
+        <td>${p.observaciones || "—"}</td>
+        <td>
+          ${p.estado === "Pendiente" ? `
+            <button class="btn-tabla btn-mini btn-green" onclick="marcarEntregado('${p.id}')">Entregar</button>
+            <button class="btn-tabla btn-mini btn-red" onclick="rechazarPedido('${p.id}')">Rechazar</button>
+          ` : ""}
+          <button class="btn-tabla btn-mini btn-azul" onclick="editarPedido('${p.id}')">Editar</button>
+          <button class="btn-tabla btn-mini btn-grey" onclick="eliminarPedido('${p.id}')">Eliminar</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+// 8. Acciones
+window.marcarEntregado = function(id){
+  db.ref('pedidos/' + id).update({estado: "Entregado"});
+}
+window.rechazarPedido = function(id){
+  db.ref('pedidos/' + id).update({estado: "Rechazado"});
+}
+window.eliminarPedido = function(id){
+  if(confirm("¿Eliminar pedido?")) db.ref('pedidos/' + id).remove();
+}
+window.editarPedido = function(id) {
+  db.ref('pedidos/' + id).once('value').then(snap => {
+    const p = snap.val();
+    if (!p) return alert('Pedido no encontrado');
+    document.getElementById('nombre-nino').value = p.nombre;
+    document.getElementById('fecha-pedido').value = p.fecha;
+    document.getElementById('tipo-pedido').value = p.tipo;
+    document.getElementById('observaciones').value = p.observaciones || "";
+    actualizarLabelsPorTipo();
+    cargarMenuPorFechaYTipo();
+
+    if (p.tipo === "Desayunos") {
+      setTimeout(() => {
+        document.getElementById('bebidas-producto').value = p.menu || "";
+        document.getElementById('fondo-producto').value = p.entrada || "";
+      }, 350);
+    } else if (p.tipo === "Variado") {
+      document.getElementById('menu-dia').value = p.menu || "";
     } else {
-      msg.style.color = "red";
-      msg.textContent = "Error al registrar pedido semanal.";
+      document.getElementById('menu-dia').value = p.menu || "";
+      document.getElementById('entrada').value = p.entrada || "";
+      document.getElementById('postre').value = p.postre || "";
     }
-  } catch (err) {
-    ocultarLoader();
-    msg.style.color = "red";
-    msg.textContent = "Error de conexión. Intenta de nuevo.";
-  }
-});
+    document.getElementById('metodo-pago').value = p.pagado ? "Pagado" : "Credito";
+    window._editandoPedidoID = id;
+  });
+};
 
-// Cargar y mostrar todos los pedidos (para filtro)
-async function cargarPedidosYMostrar() {
-  mostrarLoader();
-  const response = await fetch(API_URL_PEDIDOS);
-  const data = await response.json();
-  ocultarLoader();
-  todosLosPedidos = Array.isArray(data) ? data : [];
-  mostrarPedidosFiltrados();
+// 9. Resumen de tarjetas
+function resumenPedidos(lista) {
+  const total = lista.length;
+  const entregados = lista.filter(p=>p.estado==="Entregado").length;
+  const pendientes = lista.filter(p=>p.estado==="Pendiente").length;
+  const peque = lista.filter(p =>
+    (p.nivel && p.nivel.toLowerCase().includes("primaria")) &&
+    (p.grado && (
+      p.grado.toLowerCase().includes("1er") ||
+      p.grado.toLowerCase().includes("2do") ||
+      p.grado.toLowerCase().includes("3er")
+    ))
+  ).length;
+
+  const cards = document.querySelectorAll('.admin-card-num');
+  if(cards[0]) cards[0].textContent = total;
+  if(cards[1]) cards[1].textContent = entregados;
+  if(cards[2]) cards[2].textContent = pendientes;
+  if(cards[3]) cards[3].textContent = peque;
 }
 
-// Filtros extra
-document.getElementById('filtroFecha').addEventListener('input', mostrarPedidosFiltrados);
-document.getElementById('filtroNombre').addEventListener('input', mostrarPedidosFiltrados);
-document.getElementById('filtroSemana').addEventListener('change', mostrarPedidosFiltrados);
-document.getElementById('filtroDia').addEventListener('change', mostrarPedidosFiltrados);
-
-// Mostrar pedidos con filtros activos
-function mostrarPedidosFiltrados() {
-  const filtroFecha = document.getElementById('filtroFecha').value;
-  const filtroNombre = normaliza(document.getElementById('filtroNombre').value);
-  const filtroSemana = document.getElementById('filtroSemana').value;
-  const filtroDia = document.getElementById('filtroDia').value;
-
-  let filtrados = todosLosPedidos;
-
-  if (filtroFecha) {
-    filtrados = filtrados.filter(p => p.Fecha === filtroFecha);
+// 10. Funciones imprimir/exportar
+window.imprimirPedidos = function() {
+  let filas = document.querySelectorAll("#tbody-pedidos tr");
+  if (filas.length == 0 || filas[0].children[0].textContent.includes("No hay pedidos")) {
+    alert("No hay pedidos para imprimir.");
+    return;
   }
-  if (filtroNombre) {
-    filtrados = filtrados.filter(p => normaliza(p.Nombre).includes(filtroNombre));
-  }
-  if (filtroSemana) {
-    filtrados = filtrados.filter(p => p.Semana === filtroSemana);
-  }
-  if (filtroDia) {
-    filtrados = filtrados.filter(p => p.Día === filtroDia);
-  }
-
-  let html = '';
-  if (filtrados.length === 0) {
-    html = '<div style="text-align:center; color:#888; margin-top:20px;">No hay pedidos registrados con este filtro</div>';
-  } else {
-    html = `<div class="tarjetas-contenedor">` + filtrados.map(pedido => `
-      <div class="tarjeta-pedido" style="position:relative;">
-        <div class="pedido-acciones">
-          <button class="btn-editar" title="Editar" data-id="${pedido.ID}">✏️</button>
-          <button class="btn-imprimir" title="Imprimir" data-id="${pedido.ID}">🖨️</button>
-          <button class="btn-borrar" title="Borrar" data-id="${pedido.ID}">🗑️</button>
-        </div>
-        <div class="tp-nombre"><b>${pedido.Nombre}</b></div>
-        <div class="tp-detalle"><b>Semana:</b> ${pedido.Semana.replace('Menus_', '').replace('_', ' ')}</div>
-        <div class="tp-detalle"><b>Día:</b> ${pedido.Día}</div>
-        <div class="tp-detalle"><b>Menú:</b> ${pedido.Menú}</div>
-        <div class="tp-detalle"><b>Entrada:</b> ${pedido.Entrada ? pedido.Entrada : '-'}</div>
-        <div class="tp-detalle"><b>Postre:</b> ${pedido.Postre ? pedido.Postre : '-'}</div>
-        <div class="tp-detalle"><b>Obs:</b> ${pedido.Observaciones ? pedido.Observaciones : '-'}</div>
-      </div>
-    `).join('') + '</div>';
-  }
-  document.getElementById('listaPedidos').innerHTML = html;
-}
-
-// Delegación de eventos para botones flotantes
-document.getElementById('listaPedidos').addEventListener('click', async function(e) {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  const pedidoId = btn.dataset.id;
-  if (btn.classList.contains('btn-borrar')) {
-    if (confirm("¿Seguro de borrar este pedido?")) {
-      await fetch(API_URL_BASE + `/ID/${pedidoId}`, { method: "DELETE" });
-      todosLosPedidos = todosLosPedidos.filter(p => p.ID !== pedidoId);
-      mostrarPedidosFiltrados();
-    }
-  } else if (btn.classList.contains('btn-imprimir')) {
-    imprimirUnPedido(pedidoId);
-  } else if (btn.classList.contains('btn-editar')) {
-    const pedido = todosLosPedidos.find(p => p.ID === pedidoId);
-    if (!pedido) return;
-    document.getElementById('nombre').value = pedido.Nombre;
-    document.getElementById('semana').value = pedido.Semana;
-    document.getElementById('dia').value = pedido.Día;
-    await cargarMenuPorSemanaYDia();
-    document.getElementById('menu').value = pedido.Menú;
-    document.getElementById('entrada').value = pedido.Entrada;
-    document.getElementById('postre').value = pedido.Postre;
-    document.getElementById('obs').value = pedido.Observaciones || '';
-    modoEdicion = true;
-    idEditar = pedido.ID;
-    document.querySelector('button[type="submit"]').textContent = "Guardar Cambios";
-    document.getElementById('msg').textContent = "Editando pedido...";
-    document.getElementById('msg').style.color = "#1c3864";
-    document.getElementById('cancelarEdicion') && (document.getElementById('cancelarEdicion').style.display = '');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-});
-
-// Imprimir UN pedido (abre ventana temporal)
-function imprimirUnPedido(id) {
-  const pedido = todosLosPedidos.find(p => p.ID === id);
-  if (!pedido) return;
-  const ticket = `
-    <div style="font-family:Arial,sans-serif;max-width:80mm;padding:10px">
-      <h3 style="text-align:left;font-size:1.1em">Pedido de Almuerzo</h3>
-      <hr>
-      <b>Nombre:</b> ${pedido.Nombre}<br>
-      <b>Semana:</b> ${pedido.Semana.replace('Menus_', '').replace('_', ' ')}<br>
-      <b>Día:</b> ${pedido.Día}<br>
-      <b>Menú:</b> ${pedido.Menú}<br>
-      <b>Entrada:</b> ${pedido.Entrada}<br>
-      <b>Postre:</b> ${pedido.Postre}<br>
-      <b>Observaciones:</b> ${pedido.Observaciones || '-'}<br>
-      <b>Fecha:</b> ${pedido.Fecha}<br>
-    </div>
+  let html = `
+    <html>
+    <head>
+      <title>Pedidos de Hoy</title>
+      <style>
+        body { font-family: Arial, sans-serif; }
+        .pedido-tarjeta {
+          border: 2px solid #0066cc;
+          border-radius: 18px;
+          padding: 18px 30px 18px 30px;
+          margin: 20px auto;
+          max-width: 430px;
+          background: #f6faff;
+          box-shadow: 0 4px 18px #005cbb15;
+        }
+        .pedido-tarjeta h2 {
+          margin: 0 0 6px 0;
+          font-size: 2em;
+          color: #094785;
+        }
+        .pedido-tarjeta .pedido-info {
+          font-size: 1.1em;
+          margin: 4px 0 10px 0;
+        }
+        .pedido-tarjeta .pedido-observacion {
+          color: #D2691E;
+          font-weight: bold;
+          font-size: 1.08em;
+          margin-top: 6px;
+        }
+      </style>
+    </head>
+    <body>
+      <h1 style="text-align:center">Pedidos de Hoy</h1>
   `;
-  const w = window.open('', '', 'width=340,height=600');
-  w.document.write(ticket);
-  w.document.close();
-  setTimeout(() => { w.print(); w.close(); }, 250);
+
+  filas.forEach(fila => {
+    let celdas = fila.children;
+    if (celdas.length < 7) return;
+    let nombre = celdas[0].textContent.trim();
+    let tipo = celdas[1].textContent.trim();
+    let detalles = celdas[2].textContent.trim();
+    let estado = celdas[4].textContent.trim();
+    let observacion = celdas[5].textContent.trim();
+    html += `
+      <div class="pedido-tarjeta">
+        <h2>${nombre}</h2>
+        <div class="pedido-info"><b>Tipo:</b> ${tipo}</div>
+        <div class="pedido-info"><b>Pedido:</b> <span style="font-weight:bold">${detalles.replace(/\n/g, "<br>")}</span></div>
+        <div class="pedido-info"><b>Estado:</b> ${estado}</div>
+        ${observacion && observacion !== "—" ? `<div class="pedido-observacion">Observación: ${observacion}</div>` : ""}
+      </div>
+    `;
+  });
+
+  html += `
+    </body>
+    </html>
+  `;
+
+  let printWindow = window.open('', '', 'width=800,height=600');
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+  setTimeout(() => printWindow.close(), 800);
+};
+
+// === CORREGIDO: Exportar Excel DIARIO usando punto y coma ===
+window.exportarExcel = function() {
+  let tabla = document.querySelector("table");
+  let csv = [];
+  for (let row of tabla.rows) {
+    let cols = [];
+    for (let cell of row.cells) {
+      cols.push('"' + cell.innerText.replace(/"/g, '""') + '"');
+    }
+    csv.push(cols.join(";")); // <-- punto y coma
+  }
+  let contenido = csv.join("\n");
+  let blob = new Blob([contenido], { type: 'text/csv' });
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement("a");
+  a.href = url;
+  a.download = "pedidos.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+
+// === OPCIONAL: Si usas exportación semanal por rango de fechas, aquí también con ; ===
+window.getFechasRango = function(inicio, fin) {
+  let fechas = [];
+  let curr = new Date(inicio);
+  let finD = new Date(fin);
+  while (curr <= finD) {
+    fechas.push(curr.toISOString().slice(0,10));
+    curr.setDate(curr.getDate()+1);
+  }
+  return fechas;
+}
+window.cargarPedidosRango = async function(fechas) {
+  let pedidos = [];
+  for(let f of fechas) {
+    let snap = await db.ref('pedidos').orderByChild('fecha').equalTo(f).once('value');
+    let lista = snap.val() ? Object.values(snap.val()) : [];
+    pedidos = pedidos.concat(lista);
+  }
+  return pedidos;
+}
+window.exportarExcelSemanal = async function(fi, ff) {
+  let fechas = window.getFechasRango(fi, ff);
+  let pedidos = await window.cargarPedidosRango(fechas);
+  if (!pedidos.length) {
+    alert('No hay pedidos en este rango.');
+    return;
+  }
+  let encabezados = [
+    'Fecha','Estudiante','Tipo','Menú','Entrada','Postre','Pago','Estado','Observaciones'
+  ];
+  let csv = [encabezados.join(";")];
+  pedidos.forEach(p=>{
+    let fila = [
+      p.fecha||'',
+      `"${(p.nombre||'').replace(/"/g,'""')}"`,
+      `"${(p.tipo||'').replace(/"/g,'""')}"`,
+      `"${(p.menu||'').replace(/"/g,'""')}"`,
+      `"${(p.entrada||'').replace(/"/g,'""')}"`,
+      `"${(p.postre && p.postre!=="nullahi"?p.postre:'')}"`,
+      p.pagado?'Pagado':'Pendiente',
+      `"${(p.estado||'').replace(/"/g,'""')}"`,
+      `"${(p.observaciones||'').replace(/"/g,'""')}"`,
+    ];
+    csv.push(fila.join(";"));
+  });
+  let contenido = csv.join("\n");
+  let blob = new Blob([contenido], { type: 'text/csv' });
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement("a");
+  a.href = url;
+  a.download = `reporte_semanal_${fi}_a_${ff}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+
+// Si tienes tu botón semanal, lo puedes conectar así:
+if (document.getElementById('btn-excel-semanal')) {
+  document.getElementById('btn-excel-semanal').onclick = function() {
+    let fi = document.getElementById('fecha-inicio').value;
+    let ff = document.getElementById('fecha-fin').value;
+    if (!fi || !ff || ff < fi) {
+      alert('Selecciona un rango de fechas válido.');
+      return;
+    }
+    window.exportarExcelSemanal(fi, ff);
+  };
 }
 
-// Imprimir pedidos filtrados
-document.getElementById('imprimirPorDia').addEventListener('click', function() {
-  const filtroFecha = document.getElementById('filtroFecha').value;
-  const filtroNombre = normaliza(document.getElementById('filtroNombre').value);
-  const filtroSemana = document.getElementById('filtroSemana').value;
-  const filtroDia = document.getElementById('filtroDia').value;
+document.getElementById('fecha-mostrar').value = fechaStr;
+cargarPedidos(fechaStr);
 
-  let filtrados = todosLosPedidos;
-  if (filtroFecha) {
-    filtrados = filtrados.filter(p => p.Fecha === filtroFecha);
-  }
-  if (filtroNombre) {
-    filtrados = filtrados.filter(p => normaliza(p.Nombre).includes(filtroNombre));
-  }
-  if (filtroSemana) {
-    filtrados = filtrados.filter(p => p.Semana === filtroSemana);
-  }
-  if (filtroDia) {
-    filtrados = filtrados.filter(p => p.Día === filtroDia);
-  }
-
-  let html = '';
-  if (filtrados.length === 0) {
-    html = '<div style="text-align:center; color:#888; margin-top:20px;">No hay pedidos registrados con este filtro</div>';
-  } else {
-    html = `<div class="tarjetas-contenedor">` + filtrados.map(pedido => `
-      <div class="tarjeta-pedido" style="position:relative;">
-        <div class="tp-nombre"><b>${pedido.Nombre}</b></div>
-        <div class="tp-detalle"><b>Semana:</b> ${pedido.Semana.replace('Menus_', '').replace('_', ' ')}</div>
-        <div class="tp-detalle"><b>Día:</b> ${pedido.Día}</div>
-        <div class="tp-detalle"><b>Menú:</b> ${pedido.Menú}</div>
-        <div class="tp-detalle"><b>Entrada:</b> ${pedido.Entrada ? pedido.Entrada : '-'}</div>
-        <div class="tp-detalle"><b>Postre:</b> ${pedido.Postre ? pedido.Postre : '-'}</div>
-        <div class="tp-detalle"><b>Obs:</b> ${pedido.Observaciones ? pedido.Observaciones : '-'}</div>
-      </div>
-    `).join('') + '</div>';
-  }
-  // Mostrar solo la lista filtrada y lanzar impresión
-  const backup = document.getElementById('listaPedidos').innerHTML;
-  document.getElementById('listaPedidos').innerHTML = html;
-  setTimeout(() => {
-    window.print();
-    document.getElementById('listaPedidos').innerHTML = backup;
-  }, 200);
-});
+const btnAgregarEst = document.getElementById('btn-agregar-estudiante');
+btnAgregarEst.onclick = () => {
+  formEst.reset();
+  msgEst.textContent = '';
+  modalTitulo.textContent = 'Agregar estudiante';
+  selectGrado.innerHTML = '<option value="">Selecciona nivel primero</option>';
+  modalBg.style.display = 'block';
+  formEst.dataset.mode = 'agregar';
+  formEst.dataset.key = '';
+  setTimeout(()=>inputNombre.focus(), 180);
+};
