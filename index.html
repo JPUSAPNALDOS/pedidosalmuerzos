@@ -2,90 +2,309 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Pedidos de Almuerzos</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
+  <title>Gestión de Pedidos de Almuerzo Escolar</title>
+  <link rel="stylesheet" href="app.css">
 </head>
 <body>
-  <div class="container">
-    <h2>Pedido de Almuerzos</h2>
-    <form id="pedidoForm">
-      <label for="nombre">Nombre:</label>
-      <input list="nombresList" id="nombre" required placeholder="Escribe o busca tu nombre" autocomplete="off">
-      <datalist id="nombresList"></datalist>
-      
-      <label for="semana">Semana:</label>
-      <select id="semana">
-        <option value="Menus_Semana1">Semana 1</option>
-        <option value="Menus_Semana2">Semana 2</option>
-        <option value="Menus_Semana3">Semana 3</option>
-        <option value="Menus_Semana4">Semana 4</option>
-      </select>
-      
-      <label for="dia">Día:</label>
-      <select id="dia">
-        <option value="Lunes">Lunes</option>
-        <option value="Martes">Martes</option>
-        <option value="Miércoles">Miércoles</option>
-        <option value="Jueves">Jueves</option>
-        <option value="Viernes">Viernes</option>
-      </select>
-      
-      <label for="menu">Menú del día:</label>
-      <input type="text" id="menu" readonly placeholder="Se llenará automáticamente">
-      
-      <label for="entrada">Entrada del día:</label>
-      <input type="text" id="entrada" readonly placeholder="Se llenará automáticamente">
-
-      <label for="postre">Postre del día:</label>
-      <input type="text" id="postre" readonly placeholder="Se llenará automáticamente">
-      
-      <label for="obs">Observaciones:</label>
-      <textarea id="obs" placeholder="Sin ají, más arroz, etc."></textarea>
-      
-      <button type="submit">Registrar Pedido</button>
-      <button type="button" id="pedirSemanaCompleta" style="background:#10b981; margin-bottom:16px;">Pedir toda la semana</button>
-      <div id="msg"></div>
-    </form>
-
-    <div id="loader" style="display:none;text-align:center;margin-top:22px;">
-      <svg width="50" height="50" viewBox="0 0 50 50">
-        <circle cx="25" cy="25" r="20" fill="none" stroke="#3171e0" stroke-width="4" stroke-linecap="round" stroke-dasharray="31.4 31.4" transform="rotate(-90 25 25)">
-          <animateTransform attributeName="transform" type="rotate" values="0 25 25;360 25 25" dur="1s" repeatCount="indefinite"/>
-        </circle>
-      </svg>
-      <div style="font-size:1em; color:#3171e0; margin-top:8px;">Cargando...</div>
+<div class="admin-wrap">
+  <div class="admin-header">
+    <div class="icon-title">🍽️</div>
+    <div>
+      <div class="admin-title">Gestión de Pedidos de Almuerzo Escolar</div>
+      <div class="admin-sub">Panel Administrativo · <span id="fechaActual"></span></div>
     </div>
-
-    <hr>
-    <h3>Pedidos registrados</h3>
-    
-    <div class="filtros-impresion">
-      <select id="filtroSemana">
-        <option value="">Todas las semanas</option>
-        <option value="Menus_Semana1">Semana 1</option>
-        <option value="Menus_Semana2">Semana 2</option>
-        <option value="Menus_Semana3">Semana 3</option>
-        <option value="Menus_Semana4">Semana 4</option>
-      </select>
-      <select id="filtroDia">
-        <option value="">Todos los días</option>
-        <option value="Lunes">Lunes</option>
-        <option value="Martes">Martes</option>
-        <option value="Miércoles">Miércoles</option>
-        <option value="Jueves">Jueves</option>
-        <option value="Viernes">Viernes</option>
-      </select>
-      <button id="imprimirPorDia" type="button">Imprimir pedidos filtrados</button>
-    </div>
-    
-    <div class="filtros-extra">
-      <input type="date" id="filtroFecha" placeholder="Filtrar por fecha">
-      <input type="text" id="filtroNombre" placeholder="Filtrar por nombre" autocomplete="off">
-    </div>
-
-    <div id="listaPedidos"></div>
   </div>
-  <script src="app.js"></script>
+
+  <div class="admin-toolbar">
+    <button class="btn-azul" onclick="imprimirPedidos()"><i>🖨️</i> Imprimir Pedidos</button>
+    <button class="btn-excel" onclick="exportarExcel()"><i>📁</i> Exportar a Excel</button>
+  </div>
+
+  <div class="admin-cards-row">
+    <div class="admin-card card-blue">
+      <div class="admin-card-title">Total de Pedidos</div>
+      <div class="admin-card-num">0</div>
+      <div class="admin-card-icon">📄</div>
+    </div>
+    <div class="admin-card card-green">
+      <div class="admin-card-title">Entregados</div>
+      <div class="admin-card-num">0</div>
+      <div class="admin-card-icon">✅</div>
+    </div>
+    <div class="admin-card card-orange">
+      <div class="admin-card-title">Pendientes</div>
+      <div class="admin-card-num">0</div>
+      <div class="admin-card-icon">⏳</div>
+    </div>
+    <div class="admin-card card-violet">
+      <div class="admin-card-title">Niños Pequeños</div>
+      <div class="admin-card-num">0</div>
+      <div class="admin-card-icon">🧸</div>
+    </div>
+  </div>
+
+  <!-- Registrar pedido -->
+  <div class="card-form">
+    <div class="form-header">📝 Registrar Nuevo Pedido</div>
+    <form id="form-pedido" autocomplete="off">
+      <div class="row-form">
+        <div class="form-group" style="flex:2; position:relative;">
+          <label>Nombre del Niño</label>
+          <div class="input-con-botones">
+            <input type="text" id="nombre-nino" placeholder="Buscar estudiante..." required autocomplete="off" style="flex:1;">
+            <button type="button" id="btn-agregar-estudiante" class="btn-azul btn-pequeno">+</button>
+            <button type="button" id="btn-editar-estudiante" class="btn-verde btn-pequeno" style="display:none;">✎</button>
+          </div>
+          <div id="sugerenciasNombres" class="sugerencias-lista"></div>
+          <div id="infoAlumno"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Fecha del Pedido</label>
+          <input type="date" id="fecha-pedido" required>
+        </div>
+      </div>
+      <div class="row-form">
+        <div class="form-group">
+          <label for="tipo-pedido">Tipo de Pedido</label>
+          <select id="tipo-pedido">
+            <option>Almuerzo</option>
+            <option>Variado</option>
+            <option>Desayunos</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- BLOQUE DESAYUNO: Solo visible si Tipo = Desayunos -->
+      <div id="bloque-desayuno">
+        <div class="row-form">
+          <!-- BEBIDAS -->
+          <div class="form-group">
+            <label>Bebidas</label>
+            <select id="bebidas-categoria">
+              <option value="">Selecciona categoría</option>
+            </select>
+            <select id="bebidas-producto">
+              <option value="">Selecciona producto</option>
+            </select>
+          </div>
+          <!-- FONDO -->
+          <div class="form-group">
+            <label>Fondo</label>
+            <select id="fondo-categoria">
+              <option value="">Selecciona categoría</option>
+            </select>
+            <select id="fondo-producto">
+              <option value="">Selecciona producto</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <!-- FIN BLOQUE DESAYUNO -->
+
+      <!-- BLOQUE PLATO/ENTRADA/POSTRE para Almuerzo/Variado -->
+      <div id="bloque-general">
+        <div class="row-form">
+          <div class="form-group" id="grupo-menu-dia">
+            <label id="label-menu-dia">Plato</label>
+            <input id="menu-dia" type="text" autocomplete="off">
+            <div id="sugerenciasJugos" class="sugerencias-lista"></div>
+            <div id="sugerenciasPlatos" class="sugerencias-lista"></div>
+          </div>
+          <div class="form-group" id="grupo-entrada">
+            <label id="label-entrada">Entrada</label>
+            <input id="entrada" type="text" autocomplete="off">
+            <div id="sugerenciasFondos" class="sugerencias-lista"></div>
+          </div>
+          <div class="form-group" id="grupo-postre">
+            <label id="label-postre">Postre</label>
+            <input id="postre" type="text" readonly class="input-disabled" autocomplete="off">
+          </div>
+        </div>
+        <!-- Botón Promoción semanal SOLO para Almuerzo -->
+        <div id="bloque-promocion-btn">
+          <button type="button" class="btn-azul" id="btn-promocion-semanal">Promoción semanal</button>
+          <span id="msg-promocion"></span>
+        </div>
+        <div id="promo-semanal-block"></div>
+      </div>
+      <!-- FIN BLOQUE GENERAL -->
+
+      <div class="row-form">
+        <div class="form-group">
+          <label>Método de Pago</label>
+          <select id="metodo-pago">
+            <option>Credito</option>
+            <option>Pagado</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:2;">
+          <label>Observaciones</label>
+          <input type="text" id="observaciones" placeholder="ej. sin picante, arroz extra...">
+        </div>
+      </div>
+      <button class="btn-verde" type="submit">Registrar Pedido</button>
+    </form>
+  </div>
+  <hr>
+
+  <!-- NUEVO: Filtro de rango para reporte semanal Excel -->
+  <div style="margin: 22px 0 14px 0;">
+    <b>Reporte semanal:</b>
+    <input type="date" id="fecha-inicio" style="margin-left:7px;">
+    <span>a</span>
+    <input type="date" id="fecha-fin" style="margin-left:7px;">
+    <button class="btn-excel" id="btn-excel-semanal"><i>📁</i> Exportar semanal Excel</button>
+  </div>
+  <!-- FIN BLOQUE NUEVO -->
+
+  <!-- Filtro para ver pedidos de un día -->
+  <div>
+    <label><b>Ver pedidos del día:</b></label>
+    <input type="date" id="fecha-mostrar" />
+  </div>
+
+  <!-- Tabla pedidos de hoy -->
+  <div class="card-table">
+    <div class="table-header">📋 Pedidos de Hoy</div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Estudiante</th>
+            <th>Tipo</th>
+            <th>Detalles del Pedido</th>
+            <th>Pago</th>
+            <th>Estado</th>
+            <th>Observaciones</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-pedidos"></tbody>
+      </table>
+    </div>
+    <div class="table-bottom-bar">
+      <button class="btn-azul" onclick="imprimirPedidos()"><i>🖨️</i> Imprimir Pedidos de Hoy</button>
+      <button class="btn-verde"><i>📊</i> Reporte Semanal</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  function actualizarLabelsPorTipo() {
+    const tipo = document.getElementById('tipo-pedido').value;
+    document.getElementById('bloque-desayuno').style.display = (tipo === "Desayunos") ? '' : 'none';
+    document.getElementById('bloque-general').style.display = (tipo !== "Desayunos") ? '' : 'none';
+    document.getElementById('bloque-promocion-btn').style.display = (tipo === "Almuerzo") ? '' : 'none';
+  }
+  document.getElementById('tipo-pedido').addEventListener('change', actualizarLabelsPorTipo);
+  actualizarLabelsPorTipo();
+});
+
+// === NUEVO: JS para reporte semanal solo Excel ===
+
+// Helpers de fechas
+function getFechasRango(inicio, fin) {
+  let fechas = [];
+  let curr = new Date(inicio);
+  let finD = new Date(fin);
+  while (curr <= finD) {
+    fechas.push(curr.toISOString().slice(0,10));
+    curr.setDate(curr.getDate()+1);
+  }
+  return fechas;
+}
+
+async function cargarPedidosRango(fechas) {
+  // Asume que tienes "db" global inicializado de Firebase
+  let pedidos = [];
+  for(let f of fechas) {
+    let snap = await db.ref('pedidos').orderByChild('fecha').equalTo(f).once('value');
+    let lista = snap.val() ? Object.values(snap.val()) : [];
+    pedidos = pedidos.concat(lista);
+  }
+  return pedidos;
+}
+
+document.getElementById('btn-excel-semanal').onclick = async function() {
+  let fi = document.getElementById('fecha-inicio').value;
+  let ff = document.getElementById('fecha-fin').value;
+  if (!fi || !ff || ff < fi) {
+    alert('Selecciona un rango de fechas válido.');
+    return;
+  }
+  let fechas = getFechasRango(fi, ff);
+  let pedidos = await cargarPedidosRango(fechas);
+  if (!pedidos.length) {
+    alert('No hay pedidos en este rango.');
+    return;
+  }
+  let encabezados = [
+    'Fecha','Estudiante','Tipo','Menú','Entrada','Postre','Pago','Estado','Observaciones'
+  ];
+  let csv = [encabezados.join(",")];
+  pedidos.forEach(p=>{
+    let fila = [
+      p.fecha||'',
+      `"${(p.nombre||'').replace(/"/g,'""')}"`,
+      `"${(p.tipo||'').replace(/"/g,'""')}"`,
+      `"${(p.menu||'').replace(/"/g,'""')}"`,
+      `"${(p.entrada||'').replace(/"/g,'""')}"`,
+      `"${(p.postre && p.postre!=="nullahi"?p.postre:'')}"`,
+      p.pagado?'Pagado':'Pendiente',
+      `"${(p.estado||'').replace(/"/g,'""')}"`,
+      `"${(p.observaciones||'').replace(/"/g,'""')}"`
+    ];
+    csv.push(fila.join(","));
+  });
+  let contenido = csv.join("\n");
+  let blob = new Blob([contenido], { type: 'text/csv' });
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement("a");
+  a.href = url;
+  a.download = `reporte_semanal_${fi}_a_${ff}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+</script>
+
+<!-- MODAL AGREGAR/EDITAR ESTUDIANTE -->
+<div id="modal-estudiante-bg">
+  <div id="modal-estudiante">
+    <div id="modal-estudiante-titulo">Agregar estudiante</div>
+    <form id="form-estudiante" autocomplete="off">
+      <div class="form-group">
+        <label>Nombre <span>*</span></label>
+        <input type="text" id="modal-nombre" maxlength="60" required autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Nivel <span>*</span></label>
+        <select id="modal-nivel" required>
+          <option value="">Selecciona</option>
+          <option value="Primaria">Primaria</option>
+          <option value="Secundaria">Secundaria</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Grado <span>*</span></label>
+        <select id="modal-grado" required>
+          <option value="">Selecciona nivel primero</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Salón</label>
+        <input type="text" id="modal-salon" maxlength="30" autocomplete="off">
+      </div>
+      <div class="modal-btns">
+        <button type="button" class="btn-azul" id="btn-cerrar-modal-est">Cancelar</button>
+        <button type="submit" class="btn-verde" id="btn-guardar-est">Guardar</button>
+      </div>
+      <div id="msg-estudiante-modal"></div>
+    </form>
+  </div>
+</div>
+
 </body>
 </html>
