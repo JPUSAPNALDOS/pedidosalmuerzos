@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <title>Gestión de Pedidos de Almuerzo Escolar</title>
   <link rel="stylesheet" href="style.css">
+  <!-- 🚨 AGREGADO: SCRIPTS DE FIREBASE -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 <div class="admin-wrap">
@@ -190,86 +193,6 @@
   </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  function actualizarLabelsPorTipo() {
-    const tipo = document.getElementById('tipo-pedido').value;
-    document.getElementById('bloque-desayuno').style.display = (tipo === "Desayunos") ? '' : 'none';
-    document.getElementById('bloque-general').style.display = (tipo !== "Desayunos") ? '' : 'none';
-    document.getElementById('bloque-promocion-btn').style.display = (tipo === "Almuerzo") ? '' : 'none';
-  }
-  document.getElementById('tipo-pedido').addEventListener('change', actualizarLabelsPorTipo);
-  actualizarLabelsPorTipo();
-});
-
-// === NUEVO: JS para reporte semanal solo Excel ===
-
-// Helpers de fechas
-function getFechasRango(inicio, fin) {
-  let fechas = [];
-  let curr = new Date(inicio);
-  let finD = new Date(fin);
-  while (curr <= finD) {
-    fechas.push(curr.toISOString().slice(0,10));
-    curr.setDate(curr.getDate()+1);
-  }
-  return fechas;
-}
-
-async function cargarPedidosRango(fechas) {
-  // Asume que tienes "db" global inicializado de Firebase
-  let pedidos = [];
-  for(let f of fechas) {
-    let snap = await db.ref('pedidos').orderByChild('fecha').equalTo(f).once('value');
-    let lista = snap.val() ? Object.values(snap.val()) : [];
-    pedidos = pedidos.concat(lista);
-  }
-  return pedidos;
-}
-
-document.getElementById('btn-excel-semanal').onclick = async function() {
-  let fi = document.getElementById('fecha-inicio').value;
-  let ff = document.getElementById('fecha-fin').value;
-  if (!fi || !ff || ff < fi) {
-    alert('Selecciona un rango de fechas válido.');
-    return;
-  }
-  let fechas = getFechasRango(fi, ff);
-  let pedidos = await cargarPedidosRango(fechas);
-  if (!pedidos.length) {
-    alert('No hay pedidos en este rango.');
-    return;
-  }
-  let encabezados = [
-    'Fecha','Estudiante','Tipo','Menú','Entrada','Postre','Pago','Estado','Observaciones'
-  ];
-  let csv = [encabezados.join(",")];
-  pedidos.forEach(p=>{
-    let fila = [
-      p.fecha||'',
-      `"${(p.nombre||'').replace(/"/g,'""')}"`,
-      `"${(p.tipo||'').replace(/"/g,'""')}"`,
-      `"${(p.menu||'').replace(/"/g,'""')}"`,
-      `"${(p.entrada||'').replace(/"/g,'""')}"`,
-      `"${(p.postre && p.postre!=="nullahi"?p.postre:'')}"`,
-      p.pagado?'Pagado':'Pendiente',
-      `"${(p.estado||'').replace(/"/g,'""')}"`,
-      `"${(p.observaciones||'').replace(/"/g,'""')}"`
-    ];
-    csv.push(fila.join(","));
-  });
-  let contenido = csv.join("\n");
-  let blob = new Blob([contenido], { type: 'text/csv' });
-  let url = URL.createObjectURL(blob);
-  let a = document.createElement("a");
-  a.href = url;
-  a.download = `reporte_semanal_${fi}_a_${ff}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-};
-</script>
-
 <!-- MODAL AGREGAR/EDITAR ESTUDIANTE -->
 <div id="modal-estudiante-bg">
   <div id="modal-estudiante">
@@ -306,5 +229,7 @@ document.getElementById('btn-excel-semanal').onclick = async function() {
   </div>
 </div>
 
+<!-- 🚨 TU SCRIPT PERSONAL, SIEMPRE DESPUÉS DE LOS DE FIREBASE -->
+<script src="app.js"></script>
 </body>
 </html>
