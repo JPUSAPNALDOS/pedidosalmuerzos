@@ -1,3 +1,5 @@
+document.addEventListener('DOMContentLoaded', function() {
+
 // 1. Configuración Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCyOM53d_eMSOi4AOjbS2roW7ZTZCJFRoM",
@@ -101,17 +103,15 @@ function llenarSelectSimple(id, array) {
   });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  cargarDesayunoFirebase();
+cargarDesayunoFirebase();
 
-  document.getElementById('bebidas-categoria').addEventListener('change', function(){
-    const cat = this.value;
-    llenarSelectSimple('bebidas-producto', cat ? productosPorCategoriaBebidas[cat] : []);
-  });
-  document.getElementById('fondo-categoria').addEventListener('change', function(){
-    const cat = this.value;
-    llenarSelectSimple('fondo-producto', cat ? productosPorCategoriaFondo[cat] : []);
-  });
+document.getElementById('bebidas-categoria').addEventListener('change', function(){
+  const cat = this.value;
+  llenarSelectSimple('bebidas-producto', cat ? productosPorCategoriaBebidas[cat] : []);
+});
+document.getElementById('fondo-categoria').addEventListener('change', function(){
+  const cat = this.value;
+  llenarSelectSimple('fondo-producto', cat ? productosPorCategoriaFondo[cat] : []);
 });
 
 document.getElementById('tipo-pedido').addEventListener('change', function(){
@@ -917,3 +917,5 @@ btnAgregarEst.onclick = () => {
   formEst.dataset.key = '';
   setTimeout(()=>inputNombre.focus(), 180);
 };
+
+}); // Fin del DOMContentLoaded
